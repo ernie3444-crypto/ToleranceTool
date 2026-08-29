@@ -105,6 +105,11 @@ namespace ToleranceTool.Excel.Datasheet
             Cell(rowIndex, columnIndex).Value2 = value;
         }
 
+        public void SetText(int rowIndex, int columnIndex, string value)
+        {
+            Cell(rowIndex, columnIndex).Value2 = value;
+        }
+
         public void ClearToolComments(string markerPrefix)
         {
             dynamic comments = _worksheet.Comments;

@@ -1,0 +1,7 @@
+Test #,Signal Name,Expected,Tolerance,Actual,Pass/Fail
+1,FT-201 Flow,125,,124.8,
+2,FT-201 Flow,200,,199.6,
+3,PT-330 Pressure,50,,50.2,
+4,PT-330 Pressure,90,,90.1,
+5,LT-042 Level,1500,,1500,
+6,LT-042 Level,2800,,2803,

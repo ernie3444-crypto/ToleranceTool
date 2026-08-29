@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<DnaLibrary Name="Tolerance Tool" RuntimeVersion="v4.0" xmlns="http://schemas.excel-dna.net/addin/2020/07/dnalibrary">
+
+  <ExternalLibrary Path="ToleranceTool.AddIn.dll" ExplicitExports="false" LoadFromBytes="true" Pack="true" IncludePdb="false" />
+
+  <!-- Packed into the single-file .xll and loaded at runtime as needed. -->
+  <Reference Path="ToleranceTool.Core.dll" Pack="true" />
+  <Reference Path="ToleranceTool.Configuration.dll" Pack="true" />
+  <Reference Path="ToleranceTool.Import.dll" Pack="true" />
+  <Reference Path="ToleranceTool.Excel.dll" Pack="true" />
+  <Reference Path="ToleranceTool.UI.dll" Pack="true" />
+  <Reference Path="NCalc.dll" Pack="true" />
+  <Reference Path="ExcelDataReader.dll" Pack="true" />
+  <Reference Path="System.ValueTuple.dll" Pack="true" />
+
+</DnaLibrary>

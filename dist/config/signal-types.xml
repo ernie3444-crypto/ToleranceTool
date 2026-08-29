@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Starter signal-type registry. Copy to %APPDATA%\ToleranceTool\signal-types.xml
+     Each entry names a signal type and the raw range it implies. The import join
+     uses this to fill RawLow / RawHigh when the source files do not carry them. -->
+<SignalTypes>
+  <SignalType name="4-20mA" rawLow="4" rawHigh="20" unit="mA" />
+  <SignalType name="0-10V" rawLow="0" rawHigh="10" unit="V" />
+  <SignalType name="1-5V" rawLow="1" rawHigh="5" unit="V" />
+  <SignalType name="0-5V" rawLow="0" rawHigh="5" unit="V" />
+  <SignalType name="RTD-PT100" rawLow="0" rawHigh="100" unit="ohm" />
+</SignalTypes>

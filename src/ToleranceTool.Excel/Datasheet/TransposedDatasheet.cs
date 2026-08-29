@@ -44,6 +44,8 @@ namespace ToleranceTool.Excel.Datasheet
 
         public void SetNumber(int rowIndex, int columnIndex, double value) => _inner.SetNumber(columnIndex, rowIndex, value);
 
+        public void SetText(int rowIndex, int columnIndex, string value) => _inner.SetText(columnIndex, rowIndex, value);
+
         public void ClearToolComments(string markerPrefix) => _inner.ClearToolComments(markerPrefix);
 
         public void AddToolComment(int rowIndex, int columnIndex, string text) => _inner.AddToolComment(columnIndex, rowIndex, text);

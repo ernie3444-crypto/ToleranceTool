@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Starter alias tables. Copy to %APPDATA%\ToleranceTool\alias-tables.xml
+     Tables are consulted in priority order (lowest number first); first hit wins.
+     Each Alias sets exactly one of sensorName / universalId.
+     match = exact | contains | regex   (regex may capture into sensorName, e.g. $1) -->
+<AliasTables>
+
+  <AliasTable name="Example project" priority="10">
+    <Alias systemId="FT-201-A" sensorName="FT-201" match="exact" />
+    <Alias systemId="^(FT-\d+).*$" sensorName="$1" match="regex" />
+    <Alias systemId="Loop 4 Pressure" universalId="UT-1002" match="exact" />
+  </AliasTable>
+
+</AliasTables>

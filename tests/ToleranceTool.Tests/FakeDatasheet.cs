@@ -57,6 +57,10 @@ namespace ToleranceTool.Tests
 
         public void SetNumber(int rowIndex, int columnIndex, double value) => Written[(rowIndex, columnIndex)] = value;
 
+        public Dictionary<(int Row, int Col), string> WrittenText { get; } = new Dictionary<(int, int), string>();
+
+        public void SetText(int rowIndex, int columnIndex, string value) => WrittenText[(rowIndex, columnIndex)] = value;
+
         public void ClearToolComments(string markerPrefix) =>
             Comments.RemoveAll(c => c.Text.StartsWith(markerPrefix, StringComparison.Ordinal));
 

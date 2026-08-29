@@ -30,6 +30,8 @@ namespace ToleranceTool.Excel.Datasheet
 
         void SetNumber(int rowIndex, int columnIndex, double value);
 
+        void SetText(int rowIndex, int columnIndex, string value);
+
         /// <summary>Removes every classic note whose text starts with <paramref name="markerPrefix"/>.</summary>
         void ClearToolComments(string markerPrefix);
 

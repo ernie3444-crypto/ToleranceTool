@@ -170,6 +170,80 @@ namespace ToleranceTool.Excel.Datasheet
             return result;
         }
 
+        /// <summary>
+        /// Optional Pass/Fail pass: writes "Pass"/"Fail" into the Pass/Fail column from
+        /// <c>|Actual − Expected| ≤ Tolerance</c>, using the values already in the sheet.
+        /// Does not recalculate tolerances.
+        /// </summary>
+        public DatasheetRunResult RunPassFail(IDatasheet sheet, DatasheetMapping mapping)
+        {
+            var result = new DatasheetRunResult { Mode = DatasheetRunMode.Check };
+
+            if (mapping.Orientation == DatasheetOrientation.ColumnPerCase)
+            {
+                sheet = new TransposedDatasheet(sheet);
+            }
+
+            string?[] headerRow = sheet.Row(mapping.HeaderRowIndex);
+            var columns = new ColumnResolver(mapping, headerRow);
+            foreach (ConfigIssue issue in columns.Issues)
+            {
+                result.SetupProblems.Add(issue.Message);
+            }
+
+            int? expectedColumn = columns.Column(DatasheetParameter.Expected);
+            int? actualColumn = columns.Column(DatasheetParameter.Actual);
+            int? toleranceColumn = columns.Column(DatasheetParameter.Tolerance);
+            int? passFailColumn = columns.Column(DatasheetParameter.PassFail);
+            int? systemIdColumn = columns.Column(DatasheetParameter.SystemId);
+
+            if (expectedColumn == null || actualColumn == null || toleranceColumn == null || passFailColumn == null)
+            {
+                result.SetupProblems.Add("Pass/Fail needs the Expected, Actual, Tolerance and Pass/Fail headers mapped.");
+            }
+
+            if (!result.DidRun)
+            {
+                return result;
+            }
+
+            int firstRow = mapping.FirstDataRowIndex ?? mapping.HeaderRowIndex + 1;
+            int lastRow = mapping.LastDataRowIndex ?? sheet.LastRowIndex;
+
+            for (int row = firstRow; row <= lastRow; row++)
+            {
+                double? expected = sheet.GetNumber(row, expectedColumn!.Value);
+                double? actual = sheet.GetNumber(row, actualColumn!.Value);
+                double? tolerance = sheet.GetNumber(row, toleranceColumn!.Value);
+
+                if (expected == null && actual == null && tolerance == null)
+                {
+                    continue;
+                }
+
+                var outcome = new RowOutcome
+                {
+                    RowIndex = row,
+                    SystemId = systemIdColumn != null ? sheet.GetText(row, systemIdColumn.Value)?.Trim() ?? string.Empty : string.Empty,
+                };
+                result.Rows.Add(outcome);
+
+                if (expected == null || actual == null || tolerance == null)
+                {
+                    outcome.Status = RowStatus.NotCalculable;
+                    outcome.Note = "Expected, Actual and Tolerance must all be present";
+                    continue;
+                }
+
+                bool pass = Math.Abs(actual.Value - expected.Value) <= Math.Abs(tolerance.Value) + 1e-12;
+                sheet.SetText(row, passFailColumn!.Value, pass ? "Pass" : "Fail");
+                outcome.Status = pass ? RowStatus.Matches : RowStatus.Mismatch;
+                outcome.Calculated = actual.Value - expected.Value;
+            }
+
+            return result;
+        }
+
         private static void CommentIfChecking(IDatasheet sheet, DatasheetRunMode mode, int row, int column, string note)
         {
             if (mode == DatasheetRunMode.Check)

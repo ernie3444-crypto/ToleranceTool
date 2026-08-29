@@ -48,6 +48,7 @@ namespace ToleranceTool.AddIn
         <group id=""ttRun"" label=""Run"">
           <button id=""ttApply"" label=""Apply Tolerances"" size=""large"" imageMso=""Calculator"" onAction=""OnApply"" />
           <button id=""ttCheck"" label=""Check Tolerances"" size=""large"" imageMso=""Refresh"" onAction=""OnCheck"" />
+          <button id=""ttPassFail"" label=""Pass / Fail"" size=""large"" imageMso=""AcceptTask"" onAction=""OnPassFail"" />
           <button id=""ttClearComments"" label=""Clear Tool Comments"" size=""large"" imageMso=""ReviewDeleteComment"" onAction=""OnClearComments"" />
         </group>
         <group id=""ttStatus"" label=""Status"">
@@ -148,6 +149,8 @@ namespace ToleranceTool.AddIn
 
         public void OnCheck(IRibbonControl control) => RunActiveSheet(DatasheetRunMode.Check);
 
+        public void OnPassFail(IRibbonControl control) => RunActiveSheet(null);
+
         public void OnClearComments(IRibbonControl control)
         {
             try
@@ -160,7 +163,7 @@ namespace ToleranceTool.AddIn
             }
         }
 
-        private void RunActiveSheet(DatasheetRunMode mode)
+        private void RunActiveSheet(DatasheetRunMode? mode)
         {
             try
             {
@@ -194,9 +197,12 @@ namespace ToleranceTool.AddIn
 
                 var resolver = new SignalResolver(signals, aliases, mapping.ResolutionOverrides);
                 var runner = new DatasheetRunner(resolver, tolerances, curves);
-                DatasheetRunResult result = runner.Run(sheet, mapping, mode);
+                DatasheetRunResult result = mode.HasValue
+                    ? runner.Run(sheet, mapping, mode.Value)
+                    : runner.RunPassFail(sheet, mapping);
 
-                MessageBox.Show(result.Summary(), $"{mode} — {sheet.Name}", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                string title = mode.HasValue ? mode.Value.ToString() : "Pass / Fail";
+                MessageBox.Show(result.Summary(), $"{title} — {sheet.Name}", MessageBoxButtons.OK, MessageBoxIcon.Information);
             }
             catch (Exception ex)
             {

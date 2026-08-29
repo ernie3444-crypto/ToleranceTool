@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Starter tolerance library. Copy to %APPDATA%\ToleranceTool\tolerances.xml
+     Keyed by signalType + moduleType. A band is the sum of one or more typed terms:
+       Percent     value (fraction), basis = rawSpan | euSpan | reading
+       AbsoluteEu  value, unit, unitSystem = English | SI
+       AbsoluteRaw value, unit
+       Expression  space = raw | eu, body over expected/rawExpected/raw*/eu* -->
+<Tolerances>
+
+  <!-- 4-20 mA current loop: 0.3% of raw span (0.048 mA), applied through the curve. -->
+  <Tolerance signalType="4-20mA" moduleType="AI-871">
+    <Percent value="0.003" basis="rawSpan" />
+  </Tolerance>
+
+  <!-- RTD temperature: a fixed 0.45 degF, already in engineering units. -->
+  <Tolerance signalType="RTD-PT100" moduleType="AI-664">
+    <AbsoluteEu value="0.45" unit="degF" unitSystem="English" />
+  </Tolerance>
+
+  <!-- Speed pickup: a fixed 0.5 rpm, already in engineering units. -->
+  <Tolerance signalType="Tach-Pulse" moduleType="CI-220">
+    <AbsoluteEu value="0.5" unit="rpm" unitSystem="English" />
+  </Tolerance>
+
+  <!-- Composite: 0.1% of raw span plus a fixed 2 mV raw offset. -->
+  <Tolerance signalType="0-10V" moduleType="AI-664">
+    <Percent value="0.001" basis="rawSpan" />
+    <AbsoluteRaw value="0.002" unit="V" />
+  </Tolerance>
+
+</Tolerances>

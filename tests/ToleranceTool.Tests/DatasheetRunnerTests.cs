@@ -141,6 +141,34 @@ namespace ToleranceTool.Tests
         }
 
         [Fact]
+        public void RunPassFail_WritesPassOrFailFromTheSheetValues()
+        {
+            var sheet = new FakeDatasheet("PF", new[]
+            {
+                new string?[] { "Signal", "Expected", "Tol", "Actual", "Pass/Fail" },
+                new string?[] { "A", "100", "0.5", "100.3", "" },
+                new string?[] { "B", "100", "0.5", "101.0", "" },
+                new string?[] { "C", "100", "", "100.0", "" },
+            });
+
+            var mapping = new DatasheetMapping { HeaderRowIndex = 0 };
+            mapping.Headers[DatasheetParameter.SystemId] = "Signal";
+            mapping.Headers[DatasheetParameter.Expected] = "Expected";
+            mapping.Headers[DatasheetParameter.Tolerance] = "Tol";
+            mapping.Headers[DatasheetParameter.Actual] = "Actual";
+            mapping.Headers[DatasheetParameter.PassFail] = "Pass/Fail";
+
+            var runner = new DatasheetRunner(
+                new SignalResolver(new List<SignalConfig>()), new ToleranceLibrary(), ScaleCurveLibrary.CreateDefault());
+
+            DatasheetRunResult result = runner.RunPassFail(sheet, mapping);
+
+            Assert.Equal("Pass", sheet.WrittenText[(1, 4)]);
+            Assert.Equal("Fail", sheet.WrittenText[(2, 4)]);
+            Assert.False(sheet.WrittenText.ContainsKey((3, 4))); // missing tolerance -> not evaluated
+        }
+
+        [Fact]
         public void Run_ReportsAnUnresolvedMappedHeader()
         {
             (FakeDatasheet sheet, DatasheetMapping mapping, DatasheetRunner runner) = Setup(new[]

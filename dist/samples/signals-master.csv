@@ -1,0 +1,5 @@
+UniversalId,SensorName,ConversionSense,ScaleType,SignalType,ModuleType
+UT-1001,FT-201,Direct,SquareRoot,4-20mA,AI-871
+UT-1002,PT-330,Direct,Linear,4-20mA,AI-871
+UT-1003,TT-115,Direct,Linear,RTD-PT100,AI-664
+UT-1004,LT-042,Direct,Linear,0-10V,AI-664
