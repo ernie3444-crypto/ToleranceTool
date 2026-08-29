@@ -7,6 +7,12 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <!-- Closed-file .xlsx reading. On net48 this pulls in nothing but System.ValueTuple
+         (already in-box) and the framework's System.IO.Compression. CSV is parsed by hand. -->
+    <PackageReference Include="ExcelDataReader" Version="3.9.0" />
+  </ItemGroup>
+
+  <ItemGroup>
     <ProjectReference Include="..\ToleranceTool.Core\ToleranceTool.Core.csproj" />
     <ProjectReference Include="..\ToleranceTool.Configuration\ToleranceTool.Configuration.csproj" />
   </ItemGroup>
