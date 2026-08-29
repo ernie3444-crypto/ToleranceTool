@@ -20,6 +20,8 @@ namespace ToleranceTool.UI.SignalTypes
             AllowUserToAddRows = true,
             RowHeadersVisible = false,
             AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.Fill,
+            BackgroundColor = System.Drawing.SystemColors.Window,
+            BorderStyle = BorderStyle.Fixed3D,
         };
 
         private readonly Label _status = new Label { Dock = DockStyle.Bottom, Height = 22, ForeColor = Color.DimGray, TextAlign = ContentAlignment.MiddleLeft };

@@ -22,11 +22,14 @@ namespace ToleranceTool.UI.Datasheet
             Dock = DockStyle.Fill,
             RowHeadersVisible = false,
             AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.Fill,
+            BackgroundColor = System.Drawing.SystemColors.Window,
+            BorderStyle = BorderStyle.Fixed3D,
             AllowUserToAddRows = true,
         };
 
         private readonly Label _status = new Label { Dock = DockStyle.Bottom, Height = 22, ForeColor = Color.DimGray, TextAlign = ContentAlignment.MiddleLeft };
 
+        private SplitContainer _split = null!;
         private int _shownIndex = -1;
         private bool _suspend;
 
@@ -36,7 +39,8 @@ namespace ToleranceTool.UI.Datasheet
 
             Text = "Alias Table Editor";
             StartPosition = FormStartPosition.CenterParent;
-            ClientSize = new Size(760, 480);
+            ClientSize = new Size(820, 500);
+            MinimumSize = new Size(620, 400);
 
             _entries.Columns.Add(new DataGridViewTextBoxColumn { Name = "SystemId", HeaderText = "System ID / pattern" });
             _entries.Columns.Add(new DataGridViewComboBoxColumn { Name = "TargetKind", HeaderText = "Target", Items = { "SensorName", "UniversalId" } });
@@ -69,22 +73,44 @@ namespace ToleranceTool.UI.Datasheet
             }
         }
 
+        protected override void OnLoad(EventArgs e)
+        {
+            base.OnLoad(e);
+            FormLayout.SetSplit(_split, 0.28, 140, 260);
+        }
+
         private Control BuildBody()
         {
-            var split = new SplitContainer { Dock = DockStyle.Fill };
-            split.Panel1.Controls.Add(_tables);
-            split.Panel1.Controls.Add(new Label { Text = "Alias tables", Dock = DockStyle.Top, Height = 20, Font = Bold() });
+            _split = new SplitContainer { Dock = DockStyle.Fill };
+            _split.Panel1.Controls.Add(_tables);
+            _split.Panel1.Controls.Add(new Label { Text = "Alias tables", Dock = DockStyle.Top, Height = 20, Font = Bold() });
 
             var right = new Panel { Dock = DockStyle.Fill };
+
+            var header = new TableLayoutPanel
+            {
+                Dock = DockStyle.Top,
+                AutoSize = true,
+                AutoSizeMode = AutoSizeMode.GrowAndShrink,
+                ColumnCount = 4,
+                Padding = new Padding(4, 4, 4, 6),
+            };
+            header.Controls.Add(new Label { Text = "Name", AutoSize = true, Anchor = AnchorStyles.Left, Margin = new Padding(3, 6, 8, 3) }, 0, 0);
+            _name.Dock = DockStyle.None;
+            _name.Width = 220;
+            _name.Margin = new Padding(3);
+            header.Controls.Add(_name, 1, 0);
+            header.Controls.Add(new Label { Text = "Priority", AutoSize = true, Anchor = AnchorStyles.Left, Margin = new Padding(16, 6, 8, 3) }, 2, 0);
+            _priority.Dock = DockStyle.None;
+            _priority.Width = 60;
+            _priority.Margin = new Padding(3);
+            header.Controls.Add(_priority, 3, 0);
+
             right.Controls.Add(_entries);
-            var header = new TableLayoutPanel { Dock = DockStyle.Top, ColumnCount = 4, Height = 32 };
-            header.Controls.Add(new Label { Text = "Name", AutoSize = true, Anchor = AnchorStyles.Left });
-            header.Controls.Add(_name);
-            header.Controls.Add(new Label { Text = "Priority", AutoSize = true, Anchor = AnchorStyles.Left });
-            header.Controls.Add(_priority);
             right.Controls.Add(header);
-            split.Panel2.Controls.Add(right);
-            return split;
+            right.Controls.Add(new Label { Text = "Entries of selected table", Dock = DockStyle.Top, Height = 20, Font = Bold() });
+            _split.Panel2.Controls.Add(right);
+            return _split;
         }
 
         private void LoadFrom(string path)

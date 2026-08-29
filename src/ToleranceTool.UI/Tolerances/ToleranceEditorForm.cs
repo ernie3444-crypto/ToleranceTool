@@ -66,9 +66,9 @@ namespace ToleranceTool.UI.Tolerances
             ClientSize = new Size(980, 700);
             MinimumSize = new Size(780, 560);
 
-            _definitions.Columns.Add("Signal Type", 130);
-            _definitions.Columns.Add("Module Type", 110);
-            _definitions.Columns.Add("Band", 520);
+            _definitions.Columns.Add("Signal Type", 120);
+            _definitions.Columns.Add("Module Type", 100);
+            _definitions.Columns.Add("Band", 320);
             _definitions.SelectedIndexChanged += (s, e) => OnDefinitionSelected();
 
             _scaleType.Items.AddRange(new object[] { ScaleTypeNames.Linear, ScaleTypeNames.SquareRoot, ScaleTypeNames.Logarithmic });
@@ -96,9 +96,9 @@ namespace ToleranceTool.UI.Tolerances
         protected override void OnLoad(EventArgs e)
         {
             base.OnLoad(e);
-            SplitAt(_outer, 0.40);
-            SplitAt(_top, 0.52);
-            SplitAt(_bottom, 0.60);
+            FormLayout.SetSplit(_outer, 0.42);
+            FormLayout.SetSplit(_top, 0.52);
+            FormLayout.SetSplit(_bottom, 0.62);
 
             if (Selected == null && _definitions.Items.Count > 0)
             {
@@ -107,23 +107,6 @@ namespace ToleranceTool.UI.Tolerances
             }
 
             RefreshPreview();
-        }
-
-        private static void SplitAt(SplitContainer split, double fraction)
-        {
-            try
-            {
-                int extent = split.Orientation == Orientation.Vertical ? split.Width : split.Height;
-                int distance = Math.Max(split.Panel1MinSize, Math.Min((int)(extent * fraction), extent - split.Panel2MinSize));
-                if (distance > 0)
-                {
-                    split.SplitterDistance = distance;
-                }
-            }
-            catch (InvalidOperationException)
-            {
-                // window too small at load — the default split is fine
-            }
         }
 
         // --- layout -----------------------------------------------------------

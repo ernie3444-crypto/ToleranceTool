@@ -9,10 +9,10 @@ namespace ToleranceTool.UI.Import
     /// <summary>Collects an Access database path + query for a new signal source (architecture doc §7, Method B).</summary>
     public sealed class AddAccessSourceDialog : Form
     {
-        private readonly TextBox _name = new TextBox { Width = 320 };
-        private readonly TextBox _database = new TextBox { Width = 320 };
-        private readonly TextBox _query = new TextBox { Width = 320, Multiline = true, Height = 90, ScrollBars = ScrollBars.Vertical };
-        private readonly TextBox _keyColumn = new TextBox { Width = 320, Text = "UniversalId" };
+        private readonly TextBox _name = new TextBox { Dock = DockStyle.Fill };
+        private readonly TextBox _database = new TextBox { Dock = DockStyle.Fill };
+        private readonly TextBox _query = new TextBox { Dock = DockStyle.Fill, Multiline = true, Height = 90, ScrollBars = ScrollBars.Vertical };
+        private readonly TextBox _keyColumn = new TextBox { Dock = DockStyle.Fill, Text = "UniversalId" };
         private readonly CheckBox _isMaster = new CheckBox { Text = "This source is the master", AutoSize = true };
 
         public AddAccessSourceDialog()
@@ -22,18 +22,31 @@ namespace ToleranceTool.UI.Import
             StartPosition = FormStartPosition.CenterParent;
             MinimizeBox = false;
             MaximizeBox = false;
-            ClientSize = new Size(430, 320);
+            ClientSize = new Size(460, 300);
 
-            var layout = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 2, Padding = new Padding(12) };
+            var layout = new TableLayoutPanel
+            {
+                Dock = DockStyle.Fill,
+                ColumnCount = 2,
+                AutoSize = true,
+                Padding = new Padding(14, 12, 14, 4),
+            };
+            layout.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
+            layout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
+
+            int r = 0;
             void Row(string label, Control control)
             {
-                layout.Controls.Add(new Label { Text = label, AutoSize = true, Anchor = AnchorStyles.Left, Margin = new Padding(3, 6, 8, 3) });
-                layout.Controls.Add(control);
+                layout.Controls.Add(new Label { Text = label, AutoSize = true, Anchor = AnchorStyles.Left, Margin = new Padding(3, 7, 12, 3) }, 0, r);
+                control.Margin = new Padding(3, 4, 3, 4);
+                layout.Controls.Add(control, 1, r);
+                r++;
             }
 
-            var databaseRow = new FlowLayoutPanel { AutoSize = true };
-            databaseRow.Controls.Add(_database);
-            var browse = new Button { Text = "…", Width = 30 };
+            var databaseRow = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 2, AutoSize = true, Margin = new Padding(0) };
+            databaseRow.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
+            databaseRow.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
+            var browse = new Button { Text = "Browse…", AutoSize = true, Margin = new Padding(4, 3, 0, 3) };
             browse.Click += (s, e) =>
             {
                 using (var open = new OpenFileDialog { Filter = "Access database (*.accdb;*.mdb)|*.accdb;*.mdb|All files (*.*)|*.*" })
@@ -48,7 +61,8 @@ namespace ToleranceTool.UI.Import
                     }
                 }
             };
-            databaseRow.Controls.Add(browse);
+            databaseRow.Controls.Add(_database, 0, 0);
+            databaseRow.Controls.Add(browse, 1, 0);
 
             Row("Name", _name);
             Row("Database", databaseRow);
@@ -56,8 +70,8 @@ namespace ToleranceTool.UI.Import
             Row("Universal ID column", _keyColumn);
             Row(string.Empty, _isMaster);
 
-            var ok = new Button { Text = "OK", Width = 80 };
-            var cancel = new Button { Text = "Cancel", Width = 80, DialogResult = DialogResult.Cancel };
+            var ok = new Button { Text = "OK", Width = 84, Margin = new Padding(4) };
+            var cancel = new Button { Text = "Cancel", Width = 84, DialogResult = DialogResult.Cancel, Margin = new Padding(4) };
             ok.Click += (s, e) =>
             {
                 if (_database.Text.Trim().Length == 0 || _query.Text.Trim().Length == 0)
@@ -70,7 +84,7 @@ namespace ToleranceTool.UI.Import
                 Close();
             };
 
-            var buttons = new FlowLayoutPanel { Dock = DockStyle.Bottom, FlowDirection = FlowDirection.RightToLeft, Height = 44, Padding = new Padding(8) };
+            var buttons = new FlowLayoutPanel { Dock = DockStyle.Bottom, FlowDirection = FlowDirection.RightToLeft, Height = 48, Padding = new Padding(10, 8, 10, 8) };
             buttons.Controls.Add(cancel);
             buttons.Controls.Add(ok);
 
@@ -78,6 +92,7 @@ namespace ToleranceTool.UI.Import
             Controls.Add(buttons);
             AcceptButton = ok;
             CancelButton = cancel;
+            AutoScaleMode = AutoScaleMode.None;
         }
 
         public ImportSourceDefinition BuildDefinition()

@@ -38,6 +38,8 @@ namespace ToleranceTool.UI.Import
             AllowUserToDeleteRows = false,
             RowHeadersVisible = false,
             AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.Fill,
+            BackgroundColor = System.Drawing.SystemColors.Window,
+            BorderStyle = BorderStyle.Fixed3D,
             EditMode = DataGridViewEditMode.EditOnEnter,
         };
 
@@ -48,6 +50,8 @@ namespace ToleranceTool.UI.Import
             AllowUserToAddRows = false,
             RowHeadersVisible = false,
             AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.AllCells,
+            BackgroundColor = System.Drawing.SystemColors.Window,
+            BorderStyle = BorderStyle.Fixed3D,
         };
 
         private readonly ListBox _issues = new ListBox { Dock = DockStyle.Fill, IntegralHeight = false };
@@ -60,6 +64,8 @@ namespace ToleranceTool.UI.Import
         private SplitContainer _outerSplit = null!;
         private SplitContainer _topSplit = null!;
         private SplitContainer _bottomSplit = null!;
+        private SplitContainer _mapSplit = null!;
+        private TableLayoutPanel _eavRows = null!;
 
         public SignalImportForm()
         {
@@ -146,27 +152,10 @@ namespace ToleranceTool.UI.Import
         protected override void OnLoad(EventArgs e)
         {
             base.OnLoad(e);
-            TrySetSplit(_outerSplit, 0.48);
-            TrySetSplit(_topSplit, 0.30);
-            TrySetSplit(_bottomSplit, 0.70);
-        }
-
-        private static void TrySetSplit(SplitContainer split, double fraction)
-        {
-            try
-            {
-                int extent = split.Orientation == Orientation.Vertical ? split.Width : split.Height;
-                int distance = (int)(extent * fraction);
-                distance = Math.Max(split.Panel1MinSize, Math.Min(distance, extent - split.Panel2MinSize));
-                if (distance > 0)
-                {
-                    split.SplitterDistance = distance;
-                }
-            }
-            catch (InvalidOperationException)
-            {
-                // window too small at load time; the default split is acceptable
-            }
+            FormLayout.SetSplit(_outerSplit, 0.50, 120, 120);
+            FormLayout.SetSplit(_topSplit, 0.20, 150, 300);
+            FormLayout.SetSplit(_bottomSplit, 0.66, 200, 160);
+            FormLayout.SetSplit(_mapSplit, 0.52, 130, 110);
         }
 
         private Control BuildBody()
@@ -188,21 +177,27 @@ namespace ToleranceTool.UI.Import
             sourcesPanel.Controls.Add(new Label { Text = "Sources", Dock = DockStyle.Top, Height = 20, Font = Bold() });
             top.Panel1.Controls.Add(sourcesPanel);
 
-            // right: field mapping editor for the selected source
-            var mapPanel = new Panel { Dock = DockStyle.Fill };
-            mapPanel.Controls.Add(_mapping);                    // added first -> fills remaining space
-            mapPanel.Controls.Add(new Label
+            // right: source settings on top, the field-mapping grid below (resizable)
+            _mapSplit = new SplitContainer { Dock = DockStyle.Fill, Orientation = Orientation.Horizontal };
+
+            var settingsHost = new Panel { Dock = DockStyle.Fill, AutoScroll = true };
+            settingsHost.Controls.Add(new Label
             {
-                Text = "Row per signal: give each field its column.   Column per signal: give each field its row number.\n" +
-                       "Parameter per row: give each field the text that identifies it in the Parameter-name column; SI range values come from the metric column.",
+                Text = "In the field-mapping grid below, give each field its column (row-per-signal), its row number " +
+                       "(column-per-signal), or the parameter-name text (parameter-per-row).",
                 Dock = DockStyle.Top,
-                AutoSize = true,
+                AutoSize = false,
+                Height = 32,
                 ForeColor = Color.DimGray,
                 Padding = new Padding(4, 2, 4, 4),
             });
-            mapPanel.Controls.Add(BuildSettingsPanel());        // docks above the grid
-            mapPanel.Controls.Add(new Label { Text = "Field mapping for selected source", Dock = DockStyle.Top, Height = 20, Font = Bold() });
-            top.Panel2.Controls.Add(mapPanel);
+            settingsHost.Controls.Add(BuildSettingsPanel());
+            settingsHost.Controls.Add(new Label { Text = "Source settings", Dock = DockStyle.Top, Height = 20, Font = Bold() });
+            _mapSplit.Panel1.Controls.Add(settingsHost);
+
+            _mapSplit.Panel2.Controls.Add(_mapping);
+            _mapSplit.Panel2.Controls.Add(new Label { Text = "Field mapping", Dock = DockStyle.Top, Height = 20, Font = Bold() });
+            top.Panel2.Controls.Add(_mapSplit);
 
             var bottom = new SplitContainer { Dock = DockStyle.Fill };
             _bottomSplit = bottom;
@@ -228,38 +223,49 @@ namespace ToleranceTool.UI.Import
 
         private Control BuildSettingsPanel()
         {
-            var table = new TableLayoutPanel
+            var host = new FlowLayoutPanel { Dock = DockStyle.Top, AutoSize = true, AutoSizeMode = AutoSizeMode.GrowAndShrink, FlowDirection = FlowDirection.TopDown, WrapContents = false };
+
+            TableLayoutPanel MakeTable() => new TableLayoutPanel
             {
-                Dock = DockStyle.Top,
                 AutoSize = true,
                 AutoSizeMode = AutoSizeMode.GrowAndShrink,
                 ColumnCount = 2,
-                Padding = new Padding(6, 4, 6, 8),
+                Margin = new Padding(0),
+                Padding = new Padding(6, 2, 6, 2),
+                ColumnStyles = { new ColumnStyle(SizeType.AutoSize), new ColumnStyle(SizeType.AutoSize) },
             };
-            table.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
-            table.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
 
-            table.Controls.Add(_isMaster, 0, 0);
-            table.SetColumnSpan(_isMaster, 2);
+            var main = MakeTable();
+            main.Controls.Add(_isMaster, 0, 0);
+            main.SetColumnSpan(_isMaster, 2);
 
             int r = 1;
-            void Row(string label, Control control)
+            void Row(TableLayoutPanel t, ref int row, string label, Control control)
             {
-                table.Controls.Add(new Label { Text = label, AutoSize = true, Anchor = AnchorStyles.Left, Margin = new Padding(3, 7, 12, 3) }, 0, r);
-                table.Controls.Add(control, 1, r);
+                t.Controls.Add(new Label { Text = label, AutoSize = true, Anchor = AnchorStyles.Left, Margin = new Padding(3, 7, 12, 3) }, 0, row);
                 control.Margin = new Padding(3, 4, 3, 4);
-                r++;
+                t.Controls.Add(control, 1, row);
+                row++;
             }
 
-            Row("Layout", _orientation);
-            Row("Worksheet (xlsx only)", _sheetName);
-            Row("Header row (1-based)", _headerRow);
-            Row("Unique ID column", _keyColumn);
-            Row("Parameter-name column", _paramNameCol);
-            Row("Parameter-value column", _paramValueCol);
-            Row("Metric-value column (SI, optional)", _paramMetricCol);
-            return table;
+            Row(main, ref r, "Layout", _orientation);
+            Row(main, ref r, "Worksheet (xlsx only)", _sheetName);
+            Row(main, ref r, "Header row (1-based)", _headerRow);
+            Row(main, ref r, "Unique ID column", _keyColumn);
+
+            _eavRows = MakeTable();
+            _eavRows.Visible = false;
+            int e2 = 0;
+            Row(_eavRows, ref e2, "Parameter-name column", _paramNameCol);
+            Row(_eavRows, ref e2, "Parameter-value column", _paramValueCol);
+            Row(_eavRows, ref e2, "Metric-value column (SI, optional)", _paramMetricCol);
+
+            host.Controls.Add(main);
+            host.Controls.Add(_eavRows);
+            return host;
         }
+
+        private void ShowEavRows(bool visible) => _eavRows.Visible = visible;
 
         private void BuildMappingColumns()
         {
@@ -435,6 +441,7 @@ namespace ToleranceTool.UI.Import
             if (_shownIndex < 0 || _shownIndex >= _sources.Count)
             {
                 SetEditorEnabled(false);
+                ShowEavRows(false);
                 _suspend = false;
                 return;
             }
@@ -454,8 +461,8 @@ namespace ToleranceTool.UI.Import
 
             _orientation.Enabled = source.Kind != SignalSourceKind.Access;
             _sheetName.Enabled = source.Kind == SignalSourceKind.Workbook;
-            _headerRow.Enabled = source.Kind != SignalSourceKind.Access;
-            _paramNameCol.Enabled = _paramValueCol.Enabled = _paramMetricCol.Enabled = eav;
+            _headerRow.Enabled = source.Kind != SignalSourceKind.Access && !eav;
+            ShowEavRows(eav);
             _mapping.Columns["Column"].HeaderText = eav ? "Parameter name" : "Column / number";
 
             foreach (SignalField field in SignalField.All)

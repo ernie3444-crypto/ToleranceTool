@@ -31,12 +31,16 @@ namespace ToleranceTool.UI.Scales
             RowHeadersVisible = false,
             AllowUserToAddRows = true,
             AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.Fill,
+            BackgroundColor = System.Drawing.SystemColors.Window,
+            BorderStyle = BorderStyle.Fixed3D,
         };
 
         private readonly CurvePlot _plot = new CurvePlot { Dock = DockStyle.Fill };
-        private readonly ListBox _issues = new ListBox { Dock = DockStyle.Bottom, Height = 90, IntegralHeight = false };
+        private readonly ListBox _issues = new ListBox { Dock = DockStyle.Bottom, Height = 80, IntegralHeight = false };
         private readonly Label _status = new Label { Dock = DockStyle.Bottom, Height = 22, ForeColor = Color.DimGray, TextAlign = ContentAlignment.MiddleLeft };
 
+        private SplitContainer _outer = null!;
+        private SplitContainer _right = null!;
         private bool _loading;
 
         public ScaleTypeEditorForm(string? path = null)
@@ -45,7 +49,8 @@ namespace ToleranceTool.UI.Scales
 
             Text = "Scale Type Editor";
             StartPosition = FormStartPosition.CenterParent;
-            ClientSize = new Size(860, 560);
+            ClientSize = new Size(960, 620);
+            MinimumSize = new Size(720, 500);
 
             _params.Columns.Add(new DataGridViewTextBoxColumn { Name = "Param", HeaderText = "Parameter" });
             _params.Columns.Add(new DataGridViewTextBoxColumn { Name = "Value", HeaderText = "Value" });
@@ -81,34 +86,45 @@ namespace ToleranceTool.UI.Scales
             }
         }
 
+        protected override void OnLoad(EventArgs e)
+        {
+            base.OnLoad(e);
+            FormLayout.SetSplit(_outer, 0.24, 140, 220);
+            FormLayout.SetSplit(_right, 0.52, 170, 120);
+        }
+
         private Control BuildBody()
         {
-            var split = new SplitContainer { Dock = DockStyle.Fill, SplitterDistance = 200 };
-            split.Panel1.Controls.Add(_list);
-            split.Panel1.Controls.Add(new Label { Text = "Scale types", Dock = DockStyle.Top, Height = 20, Font = Bold() });
+            _outer = new SplitContainer { Dock = DockStyle.Fill };
+            _outer.Panel1.Controls.Add(_list);
+            _outer.Panel1.Controls.Add(new Label { Text = "Scale types", Dock = DockStyle.Top, Height = 20, Font = Bold() });
 
-            var right = new SplitContainer { Dock = DockStyle.Fill, SplitterDistance = 300 };
+            _right = new SplitContainer { Dock = DockStyle.Fill, Orientation = Orientation.Horizontal };
 
             var editor = new Panel { Dock = DockStyle.Fill };
-            editor.Controls.Add(_params);
-            editor.Controls.Add(Labeled("Inverse (rawFrac → euFrac)", _inverse));
-            editor.Controls.Add(Labeled("Forward (euFrac → rawFrac)", _forward));
+            editor.Controls.Add(_params);                                                  // fills the space below the fields
+            editor.Controls.Add(new Label { Text = "Parameters", Dock = DockStyle.Top, Height = 18, ForeColor = Color.DimGray, Padding = new Padding(2, 4, 0, 0) });
+            editor.Controls.Add(Labeled("Inverse   rawFrac → euFrac", _inverse));
+            editor.Controls.Add(Labeled("Forward   euFrac → rawFrac", _forward));
             editor.Controls.Add(Labeled("Name", _name));
-            right.Panel1.Controls.Add(editor);
+            _params.Dock = DockStyle.Fill;
+            _params.Height = 0;
+            _right.Panel1.Controls.Add(editor);
 
-            right.Panel2.Controls.Add(_plot);
-            right.Panel2.Controls.Add(new Label { Text = "Curve (blue Forward, green Inverse; y = x reference)", Dock = DockStyle.Top, Height = 20, Font = Bold() });
+            _right.Panel2.Controls.Add(_plot);
+            _right.Panel2.Controls.Add(new Label { Text = "Curve   (blue = Forward, green = Inverse, grey = y=x)", Dock = DockStyle.Top, Height = 18, ForeColor = Color.DimGray });
 
-            split.Panel2.Controls.Add(right);
-            return split;
+            _outer.Panel2.Controls.Add(_right);
+            return _outer;
         }
 
         private static Control Labeled(string caption, Control control)
         {
-            var host = new Panel { Dock = DockStyle.Top, Height = 44 };
-            control.Dock = DockStyle.Top;
+            var host = new Panel { Dock = DockStyle.Top, Height = 48, Padding = new Padding(2, 2, 2, 4) };
+            control.Dock = DockStyle.Fill;
+            var label = new Label { Text = caption, Dock = DockStyle.Top, Height = 18, ForeColor = Color.DimGray };
             host.Controls.Add(control);
-            host.Controls.Add(new Label { Text = caption, Dock = DockStyle.Top, Height = 18, ForeColor = Color.DimGray });
+            host.Controls.Add(label);
             return host;
         }
 

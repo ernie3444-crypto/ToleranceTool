@@ -47,10 +47,15 @@ namespace ToleranceTool.UI.Datasheet
             AllowUserToAddRows = false,
             RowHeadersVisible = false,
             AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.Fill,
+            BackgroundColor = System.Drawing.SystemColors.Window,
+            BorderStyle = BorderStyle.Fixed3D,
         };
 
         private readonly TextBox _report = new TextBox { Multiline = true, ReadOnly = true, Dock = DockStyle.Fill, ScrollBars = ScrollBars.Vertical, Font = new Font(FontFamily.GenericMonospace, 8.5f) };
         private readonly Label _status = new Label { Dock = DockStyle.Bottom, Height = 22, ForeColor = Color.DimGray, TextAlign = ContentAlignment.MiddleLeft };
+
+        private SplitContainer _outerSplit = null!;
+        private SplitContainer _bottomSplit = null!;
 
         public DatasheetMappingForm(IDatasheet sheet, string? mappingXml = null, Action<string>? persistMapping = null)
         {
@@ -91,14 +96,22 @@ namespace ToleranceTool.UI.Datasheet
             RefreshReview();
         }
 
+        protected override void OnLoad(EventArgs e)
+        {
+            base.OnLoad(e);
+            FormLayout.SetSplit(_outerSplit, 0.50, 200, 160);
+            FormLayout.SetSplit(_bottomSplit, 0.64, 260, 160);
+        }
+
         // --- layout --------------------------------------------------------
 
         private Control BuildBody()
         {
-            var split = new SplitContainer { Dock = DockStyle.Fill, Orientation = Orientation.Horizontal, SplitterDistance = 250 };
-            split.Panel1.Controls.Add(BuildTopPanel());
+            _outerSplit = new SplitContainer { Dock = DockStyle.Fill, Orientation = Orientation.Horizontal };
+            _outerSplit.Panel1.Controls.Add(BuildTopPanel());
 
-            var bottom = new SplitContainer { Dock = DockStyle.Fill, SplitterDistance = 600 };
+            var bottom = new SplitContainer { Dock = DockStyle.Fill };
+            _bottomSplit = bottom;
             bottom.Panel1.Controls.Add(_review);
             bottom.Panel1.Controls.Add(new Label
             {
@@ -110,14 +123,14 @@ namespace ToleranceTool.UI.Datasheet
             bottom.Panel1.Controls.Add(new Label { Text = "Resolution review", Dock = DockStyle.Top, Height = 20, Font = Bold() });
             bottom.Panel2.Controls.Add(_report);
             bottom.Panel2.Controls.Add(new Label { Text = "Run report", Dock = DockStyle.Top, Height = 20, Font = Bold() });
-            split.Panel2.Controls.Add(bottom);
-            return split;
+            _outerSplit.Panel2.Controls.Add(bottom);
+            return _outerSplit;
         }
 
         private Control BuildTopPanel()
         {
             var panel = new Panel { Dock = DockStyle.Fill, AutoScroll = true };
-            var layout = new TableLayoutPanel { Dock = DockStyle.Top, ColumnCount = 4, AutoSize = true, Padding = new Padding(8) };
+            var layout = new TableLayoutPanel { Dock = DockStyle.Top, ColumnCount = 4, AutoSize = true, AutoSizeMode = AutoSizeMode.GrowAndShrink, Padding = new Padding(8, 6, 8, 6) };
 
             void Row(string label, Control a, string? label2 = null, Control? b = null)
             {
@@ -147,27 +160,28 @@ namespace ToleranceTool.UI.Datasheet
 
             var hint = new Label
             {
-                Text =
-                    "Precision — MatchExpected: round the tolerance to the decimal places shown in that row's Expected cell.  " +
-                    "DecimalPlaces / SignificantFigures: a fixed \"Digits\" count for every row.\n" +
-                    "Tolerance × — multiply every calculated tolerance by this before rounding (1 for accuracy testing, e.g. 2 or 4 for functional testing).\n" +
-                    "Expected / Tolerance / Actual / Pass-Fail headers may repeat — each repeated group is another test point on the same row.",
+                Text = "MatchExpected precision follows each Expected cell's decimal places.  " +
+                       "Tolerance × widens the band for functional testing.  " +
+                       "Repeated Expected/Tolerance/Actual/P-F headers = extra test points per row.",
                 Dock = DockStyle.Top,
-                AutoSize = true,
+                AutoSize = false,
+                Height = 34,
                 ForeColor = Color.DimGray,
-                Padding = new Padding(4, 4, 4, 4),
+                Padding = new Padding(6, 3, 6, 3),
             };
 
-            var buttons = new FlowLayoutPanel { Dock = DockStyle.Top, Height = 36 };
-            buttons.Controls.Add(Button("Load signal set…", LoadSignalSet));
-            buttons.Controls.Add(Button("Refresh review", RefreshReview));
-            buttons.Controls.Add(Button("Save mapping", SaveMapping));
-            buttons.Controls.Add(Button("Check", () => Run(DatasheetRunMode.Check)));
-            buttons.Controls.Add(Button("Apply", () => Run(DatasheetRunMode.Apply)));
+            var bar = new ToolStrip { GripStyle = ToolStripGripStyle.Hidden, Dock = DockStyle.Top };
+            bar.Items.Add(new ToolStripButton("Save mapping", null, (s, e) => SaveMapping()));
+            bar.Items.Add(new ToolStripButton("Refresh review", null, (s, e) => RefreshReview()));
+            bar.Items.Add(new ToolStripSeparator());
+            bar.Items.Add(new ToolStripButton("Check", null, (s, e) => Run(DatasheetRunMode.Check)));
+            bar.Items.Add(new ToolStripButton("Apply", null, (s, e) => Run(DatasheetRunMode.Apply)));
+            bar.Items.Add(new ToolStripSeparator());
+            bar.Items.Add(new ToolStripButton("Load signal set…", null, (s, e) => LoadSignalSet()));
 
-            panel.Controls.Add(layout);
             panel.Controls.Add(hint);
-            panel.Controls.Add(buttons);
+            panel.Controls.Add(layout);
+            panel.Controls.Add(bar);
             return panel;
         }
 
