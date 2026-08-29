@@ -1,0 +1,165 @@
+<Window x:Class="ToleranceTool.Wpf.Import.SignalImportWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:tt="clr-namespace:ToleranceTool.Wpf"
+        Title="Signal Configuration Import" Height="720" Width="1060" WindowStartupLocation="CenterScreen"
+        Closing="Window_Closing">
+
+    <Window.Resources>
+        <ResourceDictionary Source="/ToleranceTool.Wpf;component/Theme.xaml" />
+    </Window.Resources>
+
+    <DockPanel LastChildFill="True">
+        <StatusBar DockPanel.Dock="Bottom">
+            <TextBlock Text="{Binding Status}" Foreground="#555" />
+        </StatusBar>
+
+        <Grid Margin="6">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="*" MinHeight="200" />
+                <RowDefinition Height="6" />
+                <RowDefinition Height="1.1*" MinHeight="160" />
+            </Grid.RowDefinitions>
+
+            <!-- top: sources | (settings + field mapping) -->
+            <Grid Grid.Row="0">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="210" MinWidth="150" />
+                    <ColumnDefinition Width="6" />
+                    <ColumnDefinition Width="*" MinWidth="360" />
+                </Grid.ColumnDefinitions>
+
+                <DockPanel Grid.Column="0">
+                    <TextBlock DockPanel.Dock="Top" Text="Sources" Style="{StaticResource Heading}" />
+                    <StackPanel DockPanel.Dock="Bottom" Orientation="Horizontal" Margin="0,4,0,0">
+                        <Button Content="Add file…" Command="{Binding AddFileCommand}" Padding="6,2" Margin="0,0,4,0" />
+                        <Button Content="Add Access…" Command="{Binding AddAccessCommand}" Padding="6,2" Margin="0,0,4,0" />
+                        <Button Content="Remove" Command="{Binding RemoveCommand}" Padding="6,2" />
+                    </StackPanel>
+                    <ListBox ItemsSource="{Binding Sources}" SelectedItem="{Binding Selected}" DisplayMemberPath="Display" />
+                </DockPanel>
+
+                <GridSplitter Grid.Column="1" Style="{StaticResource SplitBar}" Width="6" />
+
+                <DockPanel Grid.Column="2" IsEnabled="{Binding Selected, Converter={x:Static tt:NotNullConverter.Instance}}">
+                    <TextBlock DockPanel.Dock="Top" Text="Source settings" Style="{StaticResource Heading}" />
+
+                    <Grid DockPanel.Dock="Top" Margin="0,0,0,6">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="220" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                        </Grid.RowDefinitions>
+
+                        <CheckBox Grid.Row="0" Grid.Column="1" Grid.ColumnSpan="2" Margin="0,2,0,4"
+                                  Content="This source is the master (links Sensor Name → Universal ID)"
+                                  IsChecked="{Binding Selected.IsMaster}" />
+
+                        <Label Grid.Row="1" Grid.Column="0" Content="Layout" Margin="0,0,10,0" />
+                        <ComboBox Grid.Row="1" Grid.Column="1" ItemsSource="{Binding Layouts}"
+                                  SelectedItem="{Binding Selected.Layout}" />
+
+                        <Label Grid.Row="2" Grid.Column="0" Content="Worksheet (xlsx)" Margin="0,0,10,0" />
+                        <TextBox Grid.Row="2" Grid.Column="1" Text="{Binding Selected.SheetName}"
+                                 IsEnabled="{Binding Selected.IsWorkbook}" />
+
+                        <Label Grid.Row="3" Grid.Column="0" Content="Header row (1-based)" Margin="0,0,10,0" />
+                        <TextBox Grid.Row="3" Grid.Column="1" Text="{Binding Selected.HeaderRow}"
+                                 IsEnabled="{Binding Selected.IsFile}" />
+
+                        <Label Grid.Row="4" Grid.Column="0" Content="Unique ID column" Margin="0,0,10,0" />
+                        <TextBox Grid.Row="4" Grid.Column="1" Text="{Binding Selected.UniversalId}" />
+
+                        <Label Grid.Row="5" Grid.Column="0" Content="Parameter-name / value / metric" Margin="0,0,10,0"
+                               Visibility="{Binding Selected.IsEav, Converter={x:Static tt:VisibleWhenConverter.Instance}}" />
+                        <StackPanel Grid.Row="5" Grid.Column="1" Grid.ColumnSpan="2" Orientation="Horizontal"
+                                    Visibility="{Binding Selected.IsEav, Converter={x:Static tt:VisibleWhenConverter.Instance}}">
+                            <TextBox Text="{Binding Selected.ParameterName}" Width="70" Margin="0,2,4,2" />
+                            <TextBox Text="{Binding Selected.ParameterValue}" Width="70" Margin="0,2,4,2" />
+                            <TextBox Text="{Binding Selected.ParameterMetric}" Width="70" Margin="0,2" />
+                        </StackPanel>
+                    </Grid>
+
+                    <TextBlock DockPanel.Dock="Top" Text="Field mapping" Style="{StaticResource Heading}" Margin="0,4,0,2" />
+
+                    <DataGrid ItemsSource="{Binding Selected.Fields}">
+                        <DataGrid.Columns>
+                            <DataGridTextColumn Header="Field" Binding="{Binding Field}" IsReadOnly="True" Width="1.4*" />
+                            <DataGridTextColumn Binding="{Binding Locator}" Width="1.4*">
+                                <DataGridTextColumn.Header>
+                                    <TextBlock Text="{Binding DataContext.Selected.LocatorHeader, RelativeSource={RelativeSource AncestorType=Window}}" />
+                                </DataGridTextColumn.Header>
+                            </DataGridTextColumn>
+                            <DataGridCheckBoxColumn Header="Required (blank ⇒ drop signal)" Binding="{Binding Required}" Width="Auto" />
+                        </DataGrid.Columns>
+                    </DataGrid>
+                </DockPanel>
+            </Grid>
+
+            <GridSplitter Grid.Row="1" Style="{StaticResource SplitBar}" Height="6" />
+
+            <!-- bottom: preview | issues -->
+            <Grid Grid.Row="2">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="2*" MinWidth="300" />
+                    <ColumnDefinition Width="6" />
+                    <ColumnDefinition Width="*" MinWidth="180" />
+                </Grid.ColumnDefinitions>
+
+                <DockPanel Grid.Column="0">
+                    <DockPanel DockPanel.Dock="Top">
+                        <TextBlock Text="Preview  (pink = incomplete, excluded from the saved set)" Style="{StaticResource Heading}" />
+                    </DockPanel>
+                    <StackPanel DockPanel.Dock="Bottom" Orientation="Horizontal" Margin="0,4,0,0">
+                        <Button Content="Build preview" Command="{Binding BuildPreviewCommand}" Padding="8,2" Margin="0,0,4,0" />
+                        <Button Content="Save for datasheet use" Command="{Binding SaveForDatasheetCommand}" Padding="8,2" Margin="0,0,4,0" />
+                        <Button Content="Export as…" Command="{Binding ExportCommand}" Padding="8,2" Margin="0,0,10,0" />
+                        <CheckBox Content="Hide incomplete" IsChecked="{Binding HideIncomplete}" VerticalAlignment="Center" />
+                    </StackPanel>
+                    <DataGrid ItemsSource="{Binding PreviewRows}" IsReadOnly="True" CanUserAddRows="False">
+                        <DataGrid.RowStyle>
+                            <Style TargetType="DataGridRow">
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding Complete}" Value="False">
+                                        <Setter Property="Background" Value="#FFE4E1" />
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </DataGrid.RowStyle>
+                        <DataGrid.Columns>
+                            <DataGridTextColumn Header="Universal ID" Binding="{Binding UniversalId}" />
+                            <DataGridTextColumn Header="Sensor Name" Binding="{Binding SensorName}" />
+                            <DataGridTextColumn Header="Conv." Binding="{Binding Conversion}" />
+                            <DataGridTextColumn Header="Scale" Binding="{Binding Scale}" />
+                            <DataGridTextColumn Header="Signal" Binding="{Binding Signal}" />
+                            <DataGridTextColumn Header="Module" Binding="{Binding Module}" />
+                            <DataGridTextColumn Header="Raw Lo" Binding="{Binding RawLo}" />
+                            <DataGridTextColumn Header="Raw Hi" Binding="{Binding RawHi}" />
+                            <DataGridTextColumn Header="EU Lo" Binding="{Binding EuLo}" />
+                            <DataGridTextColumn Header="EU Hi" Binding="{Binding EuHi}" />
+                            <DataGridTextColumn Header="EU Lo SI" Binding="{Binding EuLoSi}" />
+                            <DataGridTextColumn Header="EU Hi SI" Binding="{Binding EuHiSi}" />
+                            <DataGridTextColumn Header="Missing" Binding="{Binding Missing}" />
+                        </DataGrid.Columns>
+                    </DataGrid>
+                </DockPanel>
+
+                <GridSplitter Grid.Column="1" Style="{StaticResource SplitBar}" Width="6" />
+
+                <DockPanel Grid.Column="2">
+                    <TextBlock DockPanel.Dock="Top" Text="Issues" Style="{StaticResource Heading}" />
+                    <ListBox ItemsSource="{Binding Issues}" />
+                </DockPanel>
+            </Grid>
+        </Grid>
+    </DockPanel>
+</Window>

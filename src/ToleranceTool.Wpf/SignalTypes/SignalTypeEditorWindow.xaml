@@ -1,0 +1,33 @@
+<Window x:Class="ToleranceTool.Wpf.SignalTypes.SignalTypeEditorWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Signal Type Registry" Height="440" Width="620" WindowStartupLocation="CenterScreen">
+
+    <Window.Resources>
+        <ResourceDictionary Source="/ToleranceTool.Wpf;component/Theme.xaml" />
+    </Window.Resources>
+
+    <DockPanel LastChildFill="True">
+        <ToolBar DockPanel.Dock="Top">
+            <Button Content="Load…" Command="{Binding LoadCommand}" />
+            <Button Content="Save" Command="{Binding SaveCommand}" />
+            <Button Content="Save As…" Command="{Binding SaveAsCommand}" />
+        </ToolBar>
+
+        <StatusBar DockPanel.Dock="Bottom">
+            <TextBlock Text="{Binding Status}" Foreground="#555" />
+        </StatusBar>
+
+        <TextBlock DockPanel.Dock="Top" Style="{StaticResource Hint}" Margin="8,6,8,2"
+                   Text="One entry per signal type. The raw range fills a signal's Raw Low / Raw High during import." />
+
+        <DataGrid Margin="8,2,8,8" ItemsSource="{Binding Rows}">
+            <DataGrid.Columns>
+                <DataGridTextColumn Header="Name" Binding="{Binding Name}" Width="2*" />
+                <DataGridTextColumn Header="Raw low" Binding="{Binding RawLow}" Width="*" />
+                <DataGridTextColumn Header="Raw high" Binding="{Binding RawHigh}" Width="*" />
+                <DataGridTextColumn Header="Unit" Binding="{Binding Unit}" Width="*" />
+            </DataGrid.Columns>
+        </DataGrid>
+    </DockPanel>
+</Window>

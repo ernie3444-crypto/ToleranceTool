@@ -1,0 +1,171 @@
+<Window x:Class="ToleranceTool.Wpf.Datasheet.DatasheetMappingWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Datasheet Mapping" Height="700" Width="960" WindowStartupLocation="CenterScreen">
+
+    <Window.Resources>
+        <ResourceDictionary Source="/ToleranceTool.Wpf;component/Theme.xaml" />
+    </Window.Resources>
+
+    <DockPanel LastChildFill="True">
+        <ToolBar DockPanel.Dock="Top">
+            <Button Content="Save mapping" Command="{Binding SaveMappingCommand}" />
+            <Button Content="Refresh review" Command="{Binding RefreshReviewCommand}" />
+            <Separator />
+            <Button Content="Check" Command="{Binding CheckCommand}" />
+            <Button Content="Apply" Command="{Binding ApplyCommand}" />
+            <Button Content="Pass / Fail" Command="{Binding PassFailCommand}" />
+            <Separator />
+            <Button Content="Load signal set…" Command="{Binding LoadSignalSetCommand}" />
+        </ToolBar>
+
+        <StatusBar DockPanel.Dock="Bottom">
+            <TextBlock Text="{Binding Status}" Foreground="#555" />
+        </StatusBar>
+
+        <Grid Margin="8">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="6" />
+                <RowDefinition Height="*" MinHeight="150" />
+            </Grid.RowDefinitions>
+
+            <!-- settings -->
+            <Grid Grid.Row="0">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="24" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+
+                <!-- header mapping -->
+                <StackPanel Grid.Column="0">
+                    <TextBlock Text="Header mapping" Style="{StaticResource Heading}" />
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="220" />
+                        </Grid.ColumnDefinitions>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                        </Grid.RowDefinitions>
+                        <Label Grid.Row="0" Grid.Column="0" Content="Orientation" Margin="0,0,10,0" />
+                        <ComboBox Grid.Row="0" Grid.Column="1" ItemsSource="{Binding Orientations}" SelectedItem="{Binding Orientation}" />
+                        <Label Grid.Row="1" Grid.Column="0" Content="Label row/col (1-based)" Margin="0,0,10,0" />
+                        <TextBox Grid.Row="1" Grid.Column="1" Text="{Binding HeaderRow, UpdateSourceTrigger=PropertyChanged}" HorizontalAlignment="Left" Width="60" />
+                    </Grid>
+
+                    <ItemsControl ItemsSource="{Binding Headers}" Margin="0,4,0,0">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <Grid Margin="0,1">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="Auto" />
+                                        <ColumnDefinition Width="220" />
+                                    </Grid.ColumnDefinitions>
+                                    <Label Grid.Column="0" Content="{Binding Label}" Margin="0,0,10,0" />
+                                    <ComboBox Grid.Column="1"
+                                              ItemsSource="{Binding DataContext.AvailableHeaders, RelativeSource={RelativeSource AncestorType=Window}}"
+                                              SelectedItem="{Binding Selected}" />
+                                </Grid>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </StackPanel>
+
+                <!-- unit + precision -->
+                <StackPanel Grid.Column="2">
+                    <TextBlock Text="Options" Style="{StaticResource Heading}" />
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="160" />
+                        </Grid.ColumnDefinitions>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                        </Grid.RowDefinitions>
+
+                        <Label Grid.Row="0" Grid.Column="0" Content="Per-row unit column" Margin="0,0,10,0" />
+                        <ComboBox Grid.Row="0" Grid.Column="1" ItemsSource="{Binding AvailableHeaders}" SelectedItem="{Binding UnitColumn}" />
+                        <Label Grid.Row="1" Grid.Column="0" Content="Default unit system" Margin="0,0,10,0" />
+                        <ComboBox Grid.Row="1" Grid.Column="1" ItemsSource="{Binding UnitSystems}" SelectedItem="{Binding DefaultUnitSystem}" />
+                        <Label Grid.Row="2" Grid.Column="0" Content="Precision" Margin="0,0,10,0" />
+                        <ComboBox Grid.Row="2" Grid.Column="1" ItemsSource="{Binding PrecisionModes}" SelectedItem="{Binding PrecisionMode}" />
+                        <Label Grid.Row="3" Grid.Column="0" Content="Digits (fixed modes)" Margin="0,0,10,0" />
+                        <TextBox Grid.Row="3" Grid.Column="1" Text="{Binding Digits}" HorizontalAlignment="Left" Width="60" />
+                        <Label Grid.Row="4" Grid.Column="0" Content="Rounding" Margin="0,0,10,0" />
+                        <ComboBox Grid.Row="4" Grid.Column="1" ItemsSource="{Binding RoundingModes}" SelectedItem="{Binding Rounding}" />
+                        <Label Grid.Row="5" Grid.Column="0" Content="Tolerance ×" Margin="0,0,10,0" />
+                        <ComboBox Grid.Row="5" Grid.Column="1" IsEditable="True" ItemsSource="{Binding Multipliers}" Text="{Binding Multiplier}" />
+                    </Grid>
+                    <TextBlock Style="{StaticResource Hint}" Width="200" Margin="0,6,0,0"
+                               Text="MatchExpected follows each Expected cell's decimal places. Tolerance × widens the band for functional testing." />
+                </StackPanel>
+            </Grid>
+
+            <GridSplitter Grid.Row="1" Style="{StaticResource SplitBar}" Height="6" />
+
+            <!-- review | report -->
+            <Grid Grid.Row="2">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="1.6*" MinWidth="300" />
+                    <ColumnDefinition Width="6" />
+                    <ColumnDefinition Width="*" MinWidth="200" />
+                </Grid.ColumnDefinitions>
+
+                <DockPanel Grid.Column="0">
+                    <TextBlock DockPanel.Dock="Top" Text="Resolution review" Style="{StaticResource Heading}" />
+                    <TextBlock DockPanel.Dock="Top" Style="{StaticResource Hint}"
+                               Text="Override → Universal ID: correct a wrong match, or pick &quot;(skip)&quot; to leave that row untouched by Apply / Check." />
+                    <DataGrid ItemsSource="{Binding ReviewRows}" AutoGenerateColumns="False" CanUserAddRows="False">
+                        <DataGrid.RowStyle>
+                            <Style TargetType="DataGridRow">
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding Excluded}" Value="True">
+                                        <Setter Property="Background" Value="#E8E8E8" />
+                                        <Setter Property="Foreground" Value="#888" />
+                                    </DataTrigger>
+                                    <MultiDataTrigger>
+                                        <MultiDataTrigger.Conditions>
+                                            <Condition Binding="{Binding Resolved}" Value="False" />
+                                            <Condition Binding="{Binding Excluded}" Value="False" />
+                                        </MultiDataTrigger.Conditions>
+                                        <Setter Property="Background" Value="#FFE4E1" />
+                                    </MultiDataTrigger>
+                                    <DataTrigger Binding="{Binding AutoMatched}" Value="True">
+                                        <Setter Property="Background" Value="#FAFAD2" />
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </DataGrid.RowStyle>
+                        <DataGrid.Columns>
+                            <DataGridTextColumn Header="Row" Binding="{Binding RowNumber}" IsReadOnly="True" Width="Auto" />
+                            <DataGridTextColumn Header="System ID" Binding="{Binding SystemId}" IsReadOnly="True" Width="*" />
+                            <DataGridTextColumn Header="Resolved by" Binding="{Binding Step}" IsReadOnly="True" Width="Auto" />
+                            <DataGridTextColumn Header="Signal (Sensor Name)" Binding="{Binding SignalText}" IsReadOnly="True" Width="*" />
+                            <DataGridComboBoxColumn Header="Override → Universal ID"
+                                                    SelectedItemBinding="{Binding Override}"
+                                                    ItemsSource="{Binding DataContext.OverrideOptions, RelativeSource={RelativeSource AncestorType=Window}}"
+                                                    Width="1.2*" />
+                        </DataGrid.Columns>
+                    </DataGrid>
+                </DockPanel>
+
+                <GridSplitter Grid.Column="1" Style="{StaticResource SplitBar}" Width="6" />
+
+                <DockPanel Grid.Column="2">
+                    <TextBlock DockPanel.Dock="Top" Text="Run report" Style="{StaticResource Heading}" />
+                    <TextBox Text="{Binding Report, Mode=OneWay}" IsReadOnly="True" FontFamily="Consolas"
+                             VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto"
+                             TextWrapping="NoWrap" />
+                </DockPanel>
+            </Grid>
+        </Grid>
+    </DockPanel>
+</Window>

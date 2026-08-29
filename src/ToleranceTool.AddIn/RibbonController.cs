@@ -137,53 +137,57 @@ namespace ToleranceTool.AddIn
 
         public void OnSetup(IRibbonControl control)
         {
-            switch (control.Id)
-            {
-                case "ttToleranceEditor":
-                    ShowDialog(new ToleranceEditorForm());
-                    break;
-
-                case "ttSignalConfiguration":
-                    ShowDialog(new SignalImportForm());
-                    break;
-
-                case "ttScaleTypes":
-                    // Proof of concept: this editor is the WPF re-implementation.
-                    ToleranceTool.Wpf.WpfDialogs.ScaleTypeEditor(ExcelApplication.WindowHandle);
-                    RefreshStatus();
-                    break;
-
-                case "ttSignalTypes":
-                    ShowDialog(new SignalTypeEditorForm());
-                    break;
-
-                case "ttAliasTables":
-                    ShowDialog(new AliasTableEditorForm());
-                    break;
-
-                case "ttDatasheetMapping":
-                    OpenDatasheetMapping();
-                    break;
-
-                default:
-                    Placeholders.NotImplemented(SetupFeatureName(control.Id));
-                    break;
-            }
-        }
-
-        private void OpenDatasheetMapping()
-        {
+            // The setup screens are the WPF re-implementation (ToleranceTool.Wpf).
+            IntPtr excel = ExcelApplication.WindowHandle;
             try
             {
-                var sheet = new ExcelDatasheet(ExcelApplication.ActiveSheet);
-                string path = ConfigurationPaths.SheetMappingFile(sheet.Name);
-                string? xml = File.Exists(path) ? File.ReadAllText(path) : null;
-                ShowDialog(new DatasheetMappingForm(sheet, xml));
+                switch (control.Id)
+                {
+                    case "ttToleranceEditor":
+                        ToleranceTool.Wpf.WpfDialogs.ToleranceEditor(excel);
+                        break;
+
+                    case "ttSignalConfiguration":
+                        ToleranceTool.Wpf.WpfDialogs.SignalImport(excel);
+                        break;
+
+                    case "ttScaleTypes":
+                        ToleranceTool.Wpf.WpfDialogs.ScaleTypeEditor(excel);
+                        break;
+
+                    case "ttSignalTypes":
+                        ToleranceTool.Wpf.WpfDialogs.SignalTypeEditor(excel);
+                        break;
+
+                    case "ttAliasTables":
+                        ToleranceTool.Wpf.WpfDialogs.AliasTableEditor(excel);
+                        break;
+
+                    case "ttDatasheetMapping":
+                        OpenDatasheetMapping(excel);
+                        break;
+
+                    default:
+                        Placeholders.NotImplemented(SetupFeatureName(control.Id));
+                        break;
+                }
             }
             catch (Exception ex)
             {
                 MessageBox.Show(ex.ToString(), "Tolerance Tool", MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
+            finally
+            {
+                RefreshStatus();
+            }
+        }
+
+        private void OpenDatasheetMapping(IntPtr excel)
+        {
+            var sheet = new ExcelDatasheet(ExcelApplication.ActiveSheet);
+            string path = ConfigurationPaths.SheetMappingFile(sheet.Name);
+            string? xml = File.Exists(path) ? File.ReadAllText(path) : null;
+            ToleranceTool.Wpf.WpfDialogs.DatasheetMapping(excel, sheet, xml);
         }
 
         private void ShowDialog(Form form)

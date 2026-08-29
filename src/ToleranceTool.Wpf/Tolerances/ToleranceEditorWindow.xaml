@@ -1,0 +1,129 @@
+<Window x:Class="ToleranceTool.Wpf.Tolerances.ToleranceEditorWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:tt="clr-namespace:ToleranceTool.Wpf"
+        Title="Tolerance Editor" Height="700" Width="980" WindowStartupLocation="CenterScreen">
+
+    <Window.Resources>
+        <ResourceDictionary Source="/ToleranceTool.Wpf;component/Theme.xaml" />
+    </Window.Resources>
+
+    <DockPanel LastChildFill="True">
+        <ToolBar DockPanel.Dock="Top">
+            <Button Content="Add" Click="AddDefinition_Click" />
+            <Button Content="Delete" Command="{Binding DeleteDefinitionCommand}" />
+            <Separator />
+            <Button Content="Load…" Command="{Binding LoadCommand}" />
+            <Button Content="Save" Command="{Binding SaveCommand}" />
+            <Button Content="Save As…" Command="{Binding SaveAsCommand}" />
+        </ToolBar>
+
+        <StatusBar DockPanel.Dock="Bottom">
+            <TextBlock Text="{Binding Status}" Foreground="#555" />
+        </StatusBar>
+
+        <Grid Margin="6">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="1.1*" MinHeight="150" />
+                <RowDefinition Height="6" />
+                <RowDefinition Height="*" MinHeight="150" />
+            </Grid.RowDefinitions>
+
+            <!-- top: definitions | terms -->
+            <Grid Grid.Row="0">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="1.4*" MinWidth="280" />
+                    <ColumnDefinition Width="6" />
+                    <ColumnDefinition Width="*" MinWidth="220" />
+                </Grid.ColumnDefinitions>
+
+                <DockPanel Grid.Column="0">
+                    <TextBlock DockPanel.Dock="Top" Text="Definitions" Style="{StaticResource Heading}" />
+                    <DataGrid ItemsSource="{Binding Definitions}" SelectedItem="{Binding Selected}"
+                              AutoGenerateColumns="False" IsReadOnly="True" CanUserAddRows="False">
+                        <DataGrid.Columns>
+                            <DataGridTextColumn Header="Signal Type" Binding="{Binding SignalType}" Width="Auto" />
+                            <DataGridTextColumn Header="Module Type" Binding="{Binding ModuleType}" Width="Auto" />
+                            <DataGridTextColumn Header="Band" Binding="{Binding Band}" Width="*" />
+                        </DataGrid.Columns>
+                    </DataGrid>
+                </DockPanel>
+
+                <GridSplitter Grid.Column="1" Style="{StaticResource SplitBar}" Width="6" />
+
+                <DockPanel Grid.Column="2" IsEnabled="{Binding Selected, Converter={x:Static tt:NotNullConverter.Instance}}">
+                    <TextBlock DockPanel.Dock="Top" Text="Terms of selected definition" Style="{StaticResource Heading}" />
+                    <StackPanel DockPanel.Dock="Bottom" Orientation="Horizontal" Margin="0,4,0,0">
+                        <Button Content="Add term" Click="AddTerm_Click" Padding="8,2" Margin="0,0,4,0" />
+                        <Button Content="Edit" Click="EditTerm_Click" Padding="8,2" Margin="0,0,4,0" />
+                        <Button Content="Remove" Command="{Binding RemoveTermCommand}" Padding="8,2" />
+                    </StackPanel>
+                    <ListBox ItemsSource="{Binding Terms}" SelectedItem="{Binding SelectedTerm}"
+                             DisplayMemberPath="Text" />
+                </DockPanel>
+            </Grid>
+
+            <GridSplitter Grid.Row="1" Style="{StaticResource SplitBar}" Height="6" />
+
+            <!-- bottom: preview | validation -->
+            <Grid Grid.Row="2">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="1.6*" MinWidth="320" />
+                    <ColumnDefinition Width="6" />
+                    <ColumnDefinition Width="*" MinWidth="180" />
+                </Grid.ColumnDefinitions>
+
+                <DockPanel Grid.Column="0">
+                    <TextBlock DockPanel.Dock="Top" Text="Live preview  —  sample signal + expected value → resolved band" Style="{StaticResource Heading}" />
+
+                    <Grid DockPanel.Dock="Top" Margin="0,0,0,4">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto" /><ColumnDefinition Width="70" />
+                            <ColumnDefinition Width="Auto" /><ColumnDefinition Width="70" />
+                            <ColumnDefinition Width="Auto" /><ColumnDefinition Width="120" />
+                        </Grid.ColumnDefinitions>
+                        <Grid.RowDefinitions>
+                            <RowDefinition /><RowDefinition /><RowDefinition /><RowDefinition />
+                        </Grid.RowDefinitions>
+
+                        <Label Grid.Row="0" Grid.Column="0" Content="Raw low" Margin="0,0,6,0" />
+                        <TextBox Grid.Row="0" Grid.Column="1" Text="{Binding RawLow, UpdateSourceTrigger=PropertyChanged}" />
+                        <Label Grid.Row="0" Grid.Column="2" Content="Raw high" Margin="12,0,6,0" />
+                        <TextBox Grid.Row="0" Grid.Column="3" Text="{Binding RawHigh, UpdateSourceTrigger=PropertyChanged}" />
+                        <Label Grid.Row="0" Grid.Column="4" Content="Scale" Margin="12,0,6,0" />
+                        <ComboBox Grid.Row="0" Grid.Column="5" ItemsSource="{Binding ScaleTypes}" SelectedItem="{Binding ScaleType}" />
+
+                        <Label Grid.Row="1" Grid.Column="0" Content="EU low" Margin="0,0,6,0" />
+                        <TextBox Grid.Row="1" Grid.Column="1" Text="{Binding EuLow, UpdateSourceTrigger=PropertyChanged}" />
+                        <Label Grid.Row="1" Grid.Column="2" Content="EU high" Margin="12,0,6,0" />
+                        <TextBox Grid.Row="1" Grid.Column="3" Text="{Binding EuHigh, UpdateSourceTrigger=PropertyChanged}" />
+                        <Label Grid.Row="1" Grid.Column="4" Content="Sense" Margin="12,0,6,0" />
+                        <ComboBox Grid.Row="1" Grid.Column="5" ItemsSource="{Binding Senses}" SelectedItem="{Binding Sense}" />
+
+                        <Label Grid.Row="2" Grid.Column="0" Content="EU low SI" Margin="0,0,6,0" />
+                        <TextBox Grid.Row="2" Grid.Column="1" Text="{Binding EuLowSi, UpdateSourceTrigger=PropertyChanged}" />
+                        <Label Grid.Row="2" Grid.Column="2" Content="EU high SI" Margin="12,0,6,0" />
+                        <TextBox Grid.Row="2" Grid.Column="3" Text="{Binding EuHighSi, UpdateSourceTrigger=PropertyChanged}" />
+                        <Label Grid.Row="2" Grid.Column="4" Content="Units" Margin="12,0,6,0" />
+                        <ComboBox Grid.Row="2" Grid.Column="5" ItemsSource="{Binding UnitSystems}" SelectedItem="{Binding UnitSystem}" />
+
+                        <Label Grid.Row="3" Grid.Column="0" Content="Expected" Margin="0,0,6,0" />
+                        <TextBox Grid.Row="3" Grid.Column="1" Text="{Binding Expected, UpdateSourceTrigger=PropertyChanged}" />
+                        <Button Grid.Row="3" Grid.Column="3" Grid.ColumnSpan="3" Content="Recalculate"
+                                Command="{Binding RecalculateCommand}" HorizontalAlignment="Left" Padding="10,2" Margin="12,2,0,0" />
+                    </Grid>
+
+                    <TextBox Text="{Binding PreviewText, Mode=OneWay}" IsReadOnly="True" FontFamily="Consolas"
+                             VerticalScrollBarVisibility="Auto" TextWrapping="NoWrap" HorizontalScrollBarVisibility="Auto" />
+                </DockPanel>
+
+                <GridSplitter Grid.Column="1" Style="{StaticResource SplitBar}" Width="6" />
+
+                <DockPanel Grid.Column="2">
+                    <TextBlock DockPanel.Dock="Top" Text="Validation" Style="{StaticResource Heading}" />
+                    <ListBox ItemsSource="{Binding Validation}" />
+                </DockPanel>
+            </Grid>
+        </Grid>
+    </DockPanel>
+</Window>

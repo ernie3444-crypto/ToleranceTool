@@ -1,0 +1,73 @@
+<Window x:Class="ToleranceTool.Wpf.Aliases.AliasTableEditorWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:tt="clr-namespace:ToleranceTool.Wpf"
+        Title="Alias Table Editor" Height="500" Width="820" WindowStartupLocation="CenterScreen">
+
+    <Window.Resources>
+        <ResourceDictionary Source="/ToleranceTool.Wpf;component/Theme.xaml" />
+    </Window.Resources>
+
+    <DockPanel LastChildFill="True">
+        <ToolBar DockPanel.Dock="Top">
+            <Button Content="Add table" Command="{Binding AddCommand}" />
+            <Button Content="Delete table" Command="{Binding DeleteCommand}" />
+            <Separator />
+            <Button Content="Load…" Command="{Binding LoadCommand}" />
+            <Button Content="Save" Command="{Binding SaveCommand}" />
+            <Button Content="Save As…" Command="{Binding SaveAsCommand}" />
+        </ToolBar>
+
+        <StatusBar DockPanel.Dock="Bottom">
+            <TextBlock Text="{Binding Status}" Foreground="#555" />
+        </StatusBar>
+
+        <Grid Margin="6">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="230" MinWidth="150" />
+                <ColumnDefinition Width="6" />
+                <ColumnDefinition Width="*" MinWidth="320" />
+            </Grid.ColumnDefinitions>
+
+            <DockPanel Grid.Column="0">
+                <TextBlock DockPanel.Dock="Top" Text="Alias tables" Style="{StaticResource Heading}" />
+                <ListBox ItemsSource="{Binding Tables}" SelectedItem="{Binding Selected}" DisplayMemberPath="Display" />
+            </DockPanel>
+
+            <GridSplitter Grid.Column="1" Style="{StaticResource SplitBar}" Width="6" />
+
+            <DockPanel Grid.Column="2" IsEnabled="{Binding Selected, Converter={x:Static tt:NotNullConverter.Instance}}">
+                <TextBlock DockPanel.Dock="Top" Text="Entries of selected table" Style="{StaticResource Heading}" />
+
+                <Grid DockPanel.Dock="Top" Margin="0,0,0,6">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="200" />
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="80" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+                    <Label Grid.Column="0" Content="Name" Margin="0,0,8,0" />
+                    <TextBox Grid.Column="1" Text="{Binding Selected.Name, UpdateSourceTrigger=PropertyChanged}" />
+                    <Label Grid.Column="2" Content="Priority" Margin="16,0,8,0" />
+                    <TextBox Grid.Column="3" Text="{Binding Selected.Priority, UpdateSourceTrigger=PropertyChanged}" />
+                </Grid>
+
+                <DataGrid ItemsSource="{Binding Selected.Entries}">
+                    <DataGrid.Columns>
+                        <DataGridTextColumn Header="System ID / pattern" Binding="{Binding SystemId}" Width="*" />
+                        <DataGridComboBoxColumn Header="Target"
+                                                SelectedItemBinding="{Binding TargetKind}"
+                                                ItemsSource="{Binding DataContext.TargetKinds, RelativeSource={RelativeSource AncestorType=Window}}"
+                                                Width="110" />
+                        <DataGridTextColumn Header="Target value" Binding="{Binding Target}" Width="*" />
+                        <DataGridComboBoxColumn Header="Match"
+                                                SelectedItemBinding="{Binding Match}"
+                                                ItemsSource="{Binding DataContext.MatchModes, RelativeSource={RelativeSource AncestorType=Window}}"
+                                                Width="90" />
+                    </DataGrid.Columns>
+                </DataGrid>
+            </DockPanel>
+        </Grid>
+    </DockPanel>
+</Window>
