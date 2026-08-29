@@ -39,11 +39,11 @@
                 </Grid.ColumnDefinitions>
 
                 <!-- header mapping -->
-                <StackPanel Grid.Column="0">
+                <StackPanel Grid.Column="0" Grid.IsSharedSizeScope="True">
                     <TextBlock Text="Header mapping" Style="{StaticResource Heading}" />
                     <Grid>
                         <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="Auto" SharedSizeGroup="MapLabel" />
                             <ColumnDefinition Width="220" />
                         </Grid.ColumnDefinitions>
                         <Grid.RowDefinitions>
@@ -51,9 +51,9 @@
                             <RowDefinition Height="Auto" />
                         </Grid.RowDefinitions>
                         <Label Grid.Row="0" Grid.Column="0" Content="Orientation" Margin="0,0,10,0" />
-                        <ComboBox Grid.Row="0" Grid.Column="1" ItemsSource="{Binding Orientations}" SelectedItem="{Binding Orientation}" />
+                        <ComboBox Grid.Row="0" Grid.Column="1" Margin="0,1" ItemsSource="{Binding Orientations}" SelectedItem="{Binding Orientation}" />
                         <Label Grid.Row="1" Grid.Column="0" Content="Label row/col (1-based)" Margin="0,0,10,0" />
-                        <TextBox Grid.Row="1" Grid.Column="1" Text="{Binding HeaderRow, UpdateSourceTrigger=PropertyChanged}" HorizontalAlignment="Left" Width="60" />
+                        <TextBox Grid.Row="1" Grid.Column="1" Margin="0,1" Text="{Binding HeaderRow, UpdateSourceTrigger=PropertyChanged}" HorizontalAlignment="Left" Width="60" />
                     </Grid>
 
                     <ItemsControl ItemsSource="{Binding Headers}" Margin="0,4,0,0">
@@ -61,7 +61,7 @@
                             <DataTemplate>
                                 <Grid Margin="0,1">
                                     <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="Auto" />
+                                        <ColumnDefinition Width="Auto" SharedSizeGroup="MapLabel" />
                                         <ColumnDefinition Width="220" />
                                     </Grid.ColumnDefinitions>
                                     <Label Grid.Column="0" Content="{Binding Label}" Margin="0,0,10,0" />
