@@ -141,6 +141,82 @@ namespace ToleranceTool.Tests
         }
 
         [Fact]
+        public void Apply_HandlesRepeatedColumnGroupsAsMultipleTestPointsPerRow()
+        {
+            // Division | System ID | Description | Expected | Tolerance | Expected | Tolerance | Expected | Tolerance
+            var sheet = new FakeDatasheet("Wide", new[]
+            {
+                new string?[] { "Division", "System ID", "Description", "Expected", "Tolerance", "Expected", "Tolerance", "Expected", "Tolerance" },
+                new string?[] { "A", "FT-201", "flow low",  "50",   "", "125", "", "200", "" },
+                new string?[] { "A", "FT-201", "flow again", "62.5", "", "", "", "", "" },
+            });
+
+            var mapping = new DatasheetMapping { HeaderRowIndex = 0, Precision = PrecisionPolicy.DecimalPlaces(6) };
+            mapping.Headers[DatasheetParameter.SystemId] = "System ID";
+            mapping.Headers[DatasheetParameter.Expected] = "Expected";
+            mapping.Headers[DatasheetParameter.Tolerance] = "Tolerance";
+
+            var signal = new SignalConfig
+            {
+                UniversalId = "UT-1", SensorName = "FT-201", ScaleType = ScaleTypeNames.Linear,
+                SignalType = "4-20mA", ModuleType = "AI-871",
+                RawLow = 4, RawHigh = 20, EuLow = 0, EuHigh = 250, EuLowSi = 0, EuHighSi = 250,
+            };
+            var tolerances = new ToleranceLibrary();
+            var def = new ToleranceDefinition { SignalType = "4-20mA", ModuleType = "AI-871" };
+            def.Terms.Add(new ToleranceTerm { Kind = ToleranceTermKind.Percent, Value = 0.003, PercentBasis = PercentBasis.RawSpan });
+            tolerances.Add(def);
+
+            var runner = new DatasheetRunner(
+                new SignalResolver(new[] { signal }, AliasTableSet.Empty()), tolerances, ScaleCurveLibrary.CreateDefault());
+
+            DatasheetRunResult result = runner.Run(sheet, mapping, DatasheetRunMode.Apply);
+
+            Assert.True(result.DidRun);
+            Assert.Equal(3, result.TestPointsPerRow);
+            // row 1: Expected at cols 3,5,7 -> Tolerance at cols 4,6,8
+            Assert.Equal(0.75, sheet.Written[(1, 4)], 6);
+            Assert.Equal(0.75, sheet.Written[(1, 6)], 6);
+            Assert.Equal(0.75, sheet.Written[(1, 8)], 6);
+            // row 2: only the first test point has an Expected value
+            Assert.Equal(0.75, sheet.Written[(2, 4)], 6);
+            Assert.False(sheet.Written.ContainsKey((2, 6)));
+            Assert.Equal(4, result.Written);
+        }
+
+        [Fact]
+        public void Run_WarnsWhenExpectedAndToleranceColumnCountsDiffer()
+        {
+            var sheet = new FakeDatasheet("Uneven", new[]
+            {
+                new string?[] { "System ID", "Expected", "Tolerance", "Expected" },
+                new string?[] { "FT-201", "125", "", "200" },
+            });
+
+            var mapping = new DatasheetMapping { HeaderRowIndex = 0, Precision = PrecisionPolicy.DecimalPlaces(6) };
+            mapping.Headers[DatasheetParameter.SystemId] = "System ID";
+            mapping.Headers[DatasheetParameter.Expected] = "Expected";
+            mapping.Headers[DatasheetParameter.Tolerance] = "Tolerance";
+
+            var signal = new SignalConfig
+            {
+                SensorName = "FT-201", ScaleType = ScaleTypeNames.Linear, SignalType = "4-20mA", ModuleType = "AI-871",
+                RawLow = 4, RawHigh = 20, EuLow = 0, EuHigh = 250, EuLowSi = 0, EuHighSi = 250,
+            };
+            var tolerances = new ToleranceLibrary();
+            var def = new ToleranceDefinition { SignalType = "4-20mA", ModuleType = "AI-871" };
+            def.Terms.Add(new ToleranceTerm { Kind = ToleranceTermKind.Percent, Value = 0.003, PercentBasis = PercentBasis.RawSpan });
+            tolerances.Add(def);
+
+            var runner = new DatasheetRunner(new SignalResolver(new[] { signal }), tolerances, ScaleCurveLibrary.CreateDefault());
+            DatasheetRunResult result = runner.Run(sheet, mapping, DatasheetRunMode.Apply);
+
+            Assert.True(result.DidRun);
+            Assert.Equal(1, result.TestPointsPerRow);
+            Assert.NotEmpty(result.Warnings);
+        }
+
+        [Fact]
         public void RunPassFail_WritesPassOrFailFromTheSheetValues()
         {
             var sheet = new FakeDatasheet("PF", new[]

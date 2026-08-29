@@ -136,6 +136,15 @@ namespace ToleranceTool.UI.Datasheet
             Row("Precision", _precisionMode, "Digits", _precisionDigits);
             Row("Rounding", _rounding);
 
+            var hint = new Label
+            {
+                Text = "Expected / Tolerance / Actual / Pass-Fail may repeat — each repeated group is another test point on the same row.",
+                Dock = DockStyle.Top,
+                AutoSize = true,
+                ForeColor = Color.DimGray,
+                Padding = new Padding(4, 4, 4, 4),
+            };
+
             var buttons = new FlowLayoutPanel { Dock = DockStyle.Top, Height = 36 };
             buttons.Controls.Add(Button("Load signal set…", LoadSignalSet));
             buttons.Controls.Add(Button("Refresh review", RefreshReview));
@@ -144,6 +153,7 @@ namespace ToleranceTool.UI.Datasheet
             buttons.Controls.Add(Button("Apply", () => Run(DatasheetRunMode.Apply)));
 
             panel.Controls.Add(layout);
+            panel.Controls.Add(hint);
             panel.Controls.Add(buttons);
             return panel;
         }
@@ -406,16 +416,24 @@ namespace ToleranceTool.UI.Datasheet
 
         private static string FormatReport(DatasheetRunResult result)
         {
-            var lines = new List<string> { result.Summary(), string.Empty };
+            var lines = new List<string> { result.Summary() };
+            foreach (string warning in result.Warnings)
+            {
+                lines.Add("  ! " + warning);
+            }
+
+            lines.Add(string.Empty);
             if (!result.DidRun)
             {
                 return string.Join(Environment.NewLine, lines);
             }
 
+            bool multi = result.TestPointsPerRow > 1;
             foreach (RowOutcome row in result.Rows)
             {
                 string calc = row.Calculated.HasValue ? row.Calculated.Value.ToString("0.######") : "—";
-                lines.Add($"  row {row.RowIndex + 1,-5} {row.SystemId,-22} {row.Status,-14} {calc,12}   {row.Note}");
+                string where = multi ? $"row {row.RowIndex + 1}.{row.TestPoint}" : $"row {row.RowIndex + 1}";
+                lines.Add($"  {where,-9} {row.SystemId,-22} {row.Status,-14} {calc,12}   {row.Note}");
             }
 
             return string.Join(Environment.NewLine, lines);

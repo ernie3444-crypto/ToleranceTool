@@ -31,6 +31,9 @@ namespace ToleranceTool.Excel.Datasheet
     {
         public int RowIndex { get; set; }
 
+        /// <summary>1-based test-point number within the row (1 for a single-block datasheet).</summary>
+        public int TestPoint { get; set; } = 1;
+
         public string SystemId { get; set; } = string.Empty;
 
         public ResolutionStep Resolution { get; set; }
@@ -69,6 +72,12 @@ namespace ToleranceTool.Excel.Datasheet
         /// <summary>Set when the run could not start (bad mapping, missing columns).</summary>
         public List<string> SetupProblems { get; } = new List<string>();
 
+        /// <summary>Non-fatal notes (e.g. an uneven number of Expected vs. Tolerance columns).</summary>
+        public List<string> Warnings { get; } = new List<string>();
+
+        /// <summary>Number of test-point column groups the run used per row.</summary>
+        public int TestPointsPerRow { get; set; } = 1;
+
         public bool DidRun => SetupProblems.Count == 0;
 
         public string Summary()
@@ -78,9 +87,12 @@ namespace ToleranceTool.Excel.Datasheet
                 return "Could not run: " + string.Join("; ", SetupProblems);
             }
 
-            return Mode == DatasheetRunMode.Apply
-                ? $"{Written} written, {Extrapolated} extrapolated, {Uncheckable} skipped, {Considered} rows."
-                : $"{Considered} checked, {Mismatched} mismatched, {Uncheckable} un-checkable.";
+            string points = TestPointsPerRow > 1 ? $" across {TestPointsPerRow} test points/row" : string.Empty;
+            string warn = Warnings.Count > 0 ? "  (" + string.Join("; ", Warnings) + ")" : string.Empty;
+
+            return (Mode == DatasheetRunMode.Apply
+                ? $"{Written} written, {Extrapolated} extrapolated, {Uncheckable} skipped{points}."
+                : $"{Considered} checked, {Mismatched} mismatched, {Uncheckable} un-checkable{points}.") + warn;
         }
     }
 }

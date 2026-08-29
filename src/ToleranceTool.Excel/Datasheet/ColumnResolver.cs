@@ -6,10 +6,24 @@ using ToleranceTool.Configuration.Datasheet;
 
 namespace ToleranceTool.Excel.Datasheet
 {
-    /// <summary>Resolves mapped header text to column indexes by case-insensitive, trimmed match.</summary>
+    /// <summary>
+    /// Resolves mapped header text to column indexes by case-insensitive, trimmed match.
+    /// The System ID header must resolve to exactly one column; the per-test-point
+    /// headers (Expected / Tolerance / Actual / Pass-Fail) may repeat — each repeat is
+    /// another test point on the same row.
+    /// </summary>
     public sealed class ColumnResolver
     {
-        private readonly Dictionary<DatasheetParameter, int> _columns = new Dictionary<DatasheetParameter, int>();
+        /// <summary>Parameters whose header may appear more than once (one column group per test point).</summary>
+        public static readonly IReadOnlyList<DatasheetParameter> Repeatable = new[]
+        {
+            DatasheetParameter.Expected,
+            DatasheetParameter.Tolerance,
+            DatasheetParameter.Actual,
+            DatasheetParameter.PassFail,
+        };
+
+        private readonly Dictionary<DatasheetParameter, List<int>> _columns = new Dictionary<DatasheetParameter, List<int>>();
         private readonly List<ConfigIssue> _issues = new List<ConfigIssue>();
 
         public ColumnResolver(DatasheetMapping mapping, string?[] headerRow)
@@ -40,16 +54,41 @@ namespace ToleranceTool.Excel.Datasheet
                     continue;
                 }
 
-                Bind(parameter, parameter.ToString(), header!, byHeader);
+                bool repeatable = Repeatable.Contains(parameter);
+                if (!byHeader.TryGetValue(header!.Trim(), out List<int> matches))
+                {
+                    _issues.Add(ConfigIssue.Error($"No column has the header \"{header}\" for {parameter}."));
+                    continue;
+                }
+
+                if (!repeatable && matches.Count > 1)
+                {
+                    _issues.Add(ConfigIssue.Error(
+                        $"More than one column has the header \"{header}\" for {parameter}, which must be unique."));
+                    continue;
+                }
+
+                _columns[parameter] = matches.OrderBy(c => c).ToList();
             }
 
-            if (!string.IsNullOrWhiteSpace(mapping.UnitColumnHeader))
+            if (!string.IsNullOrWhiteSpace(mapping.UnitColumnHeader)
+                && byHeader.TryGetValue(mapping.UnitColumnHeader!.Trim(), out List<int> unitMatches))
             {
-                if (Resolve(mapping.UnitColumnHeader!, byHeader, "unit column", out int unitColumn))
+                if (unitMatches.Count > 1)
                 {
-                    UnitColumnIndex = unitColumn;
+                    _issues.Add(ConfigIssue.Error($"More than one column has the header \"{mapping.UnitColumnHeader}\" for the unit column."));
+                }
+                else
+                {
+                    UnitColumnIndex = unitMatches[0];
                 }
             }
+            else if (!string.IsNullOrWhiteSpace(mapping.UnitColumnHeader))
+            {
+                _issues.Add(ConfigIssue.Error($"No column has the header \"{mapping.UnitColumnHeader}\" for the unit column."));
+            }
+
+            TestPointCount = Math.Min(Columns(DatasheetParameter.Expected).Count, Columns(DatasheetParameter.Tolerance).Count);
         }
 
         public IReadOnlyList<ConfigIssue> Issues => _issues;
@@ -58,39 +97,19 @@ namespace ToleranceTool.Excel.Datasheet
 
         public int? UnitColumnIndex { get; }
 
-        public int? Column(DatasheetParameter parameter) =>
-            _columns.TryGetValue(parameter, out int index) ? index : (int?)null;
+        /// <summary>Number of test-point column groups = min(#Expected, #Tolerance) columns.</summary>
+        public int TestPointCount { get; }
+
+        public IReadOnlyList<int> Columns(DatasheetParameter parameter) =>
+            _columns.TryGetValue(parameter, out List<int> list) ? list : (IReadOnlyList<int>)Array.Empty<int>();
+
+        public int? Column(DatasheetParameter parameter)
+        {
+            IReadOnlyList<int> list = Columns(parameter);
+            return list.Count > 0 ? list[0] : (int?)null;
+        }
 
         public int Require(DatasheetParameter parameter) =>
-            _columns.TryGetValue(parameter, out int index)
-                ? index
-                : throw new InvalidOperationException($"The {parameter} column did not resolve.");
-
-        private void Bind(DatasheetParameter parameter, string label, string header, Dictionary<string, List<int>> byHeader)
-        {
-            if (Resolve(header, byHeader, label, out int column))
-            {
-                _columns[parameter] = column;
-            }
-        }
-
-        private bool Resolve(string header, Dictionary<string, List<int>> byHeader, string label, out int column)
-        {
-            column = -1;
-            if (!byHeader.TryGetValue(header.Trim(), out List<int> matches))
-            {
-                _issues.Add(ConfigIssue.Error($"No column has the header \"{header}\" for {label}."));
-                return false;
-            }
-
-            if (matches.Count > 1)
-            {
-                _issues.Add(ConfigIssue.Error($"More than one column has the header \"{header}\" for {label}."));
-                return false;
-            }
-
-            column = matches[0];
-            return true;
-        }
+            Column(parameter) ?? throw new InvalidOperationException($"The {parameter} column did not resolve.");
     }
 }

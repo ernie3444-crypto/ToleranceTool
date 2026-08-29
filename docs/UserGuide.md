@@ -105,6 +105,14 @@ Make the datasheet the **active worksheet**, then **Setup → Datasheet Mapping*
    required; **Actual** and **Pass/Fail** are optional. Header matching is
    case-insensitive and trimmed, and the header text is stored so a moved column is
    re-found.
+
+   **Repeated column groups.** Datasheets that record several test points per
+   signal on one row — e.g. `System ID | Description | Expected | Tolerance | Actual
+   | P/F | Expected | Tolerance | Actual | P/F | …` — are handled automatically. Map
+   *Expected* to `Expected`, *Tolerance* to `Tolerance`, etc.; every repeat of those
+   headers becomes another test point on the same row. The System ID resolves once
+   per row and each test point is calculated and written independently. Empty test
+   points are skipped. (System ID must still be a single column.)
 4. **Default unit system** for the sheet (English or SI). If you map a per-row unit
    column it overrides the default for rows where it is non-blank.
 5. **Precision** — how the written value is rounded:

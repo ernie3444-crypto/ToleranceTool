@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using ToleranceTool.Configuration;
 using ToleranceTool.Configuration.Datasheet;
 using ToleranceTool.Configuration.Tolerances;
@@ -67,9 +68,17 @@ namespace ToleranceTool.Excel.Datasheet
             }
 
             int systemIdColumn = columns.Require(DatasheetParameter.SystemId);
-            int expectedColumn = columns.Require(DatasheetParameter.Expected);
-            int toleranceColumn = columns.Require(DatasheetParameter.Tolerance);
+            IReadOnlyList<int> expectedColumns = columns.Columns(DatasheetParameter.Expected);
+            IReadOnlyList<int> toleranceColumns = columns.Columns(DatasheetParameter.Tolerance);
             int? unitColumn = columns.UnitColumnIndex;
+
+            int blocks = columns.TestPointCount;
+            result.TestPointsPerRow = blocks;
+            if (expectedColumns.Count != toleranceColumns.Count)
+            {
+                result.Warnings.Add(
+                    $"{expectedColumns.Count} Expected column(s) but {toleranceColumns.Count} Tolerance column(s); using the first {blocks}");
+            }
 
             if (mode == DatasheetRunMode.Apply)
             {
@@ -87,19 +96,22 @@ namespace ToleranceTool.Excel.Datasheet
                     continue;
                 }
 
-                var outcome = new RowOutcome { RowIndex = row, SystemId = systemId! };
-                result.Rows.Add(outcome);
-
                 SignalResolution resolution = _resolver.Resolve(systemId!);
-                outcome.Resolution = resolution.Step;
 
                 if (!resolution.IsResolved)
                 {
-                    outcome.Status = resolution.Step == ResolutionStep.Ambiguous ? RowStatus.AmbiguousSignal : RowStatus.NoSignal;
-                    outcome.Note = resolution.Step == ResolutionStep.Ambiguous
+                    string note = resolution.Step == ResolutionStep.Ambiguous
                         ? $"System ID matches several signals: {string.Join(", ", resolution.Candidates)}"
                         : "System ID did not resolve to a signal";
-                    CommentIfChecking(sheet, mode, row, toleranceColumn, outcome.Note);
+                    result.Rows.Add(new RowOutcome
+                    {
+                        RowIndex = row,
+                        SystemId = systemId!,
+                        Resolution = resolution.Step,
+                        Status = resolution.Step == ResolutionStep.Ambiguous ? RowStatus.AmbiguousSignal : RowStatus.NoSignal,
+                        Note = note,
+                    });
+                    CommentIfChecking(sheet, mode, row, toleranceColumns[0], note);
                     continue;
                 }
 
@@ -107,63 +119,99 @@ namespace ToleranceTool.Excel.Datasheet
 
                 if (!_tolerances.TryGet(signal.SignalType, signal.ModuleType, out ToleranceDefinition tolerance))
                 {
-                    outcome.Status = RowStatus.NoTolerance;
-                    outcome.Note = $"No tolerance for {signal.SignalType} / {signal.ModuleType}";
-                    CommentIfChecking(sheet, mode, row, toleranceColumn, outcome.Note);
-                    continue;
-                }
-
-                double? expected = sheet.GetNumber(row, expectedColumn);
-                if (expected == null)
-                {
-                    outcome.Status = RowStatus.NotCalculable;
-                    outcome.Note = "Expected value is blank or not a number";
-                    CommentIfChecking(sheet, mode, row, toleranceColumn, outcome.Note);
+                    string note = $"No tolerance for {signal.SignalType} / {signal.ModuleType}";
+                    result.Rows.Add(new RowOutcome
+                    {
+                        RowIndex = row,
+                        SystemId = systemId!,
+                        Resolution = resolution.Step,
+                        Status = RowStatus.NoTolerance,
+                        Note = note,
+                    });
+                    CommentIfChecking(sheet, mode, row, toleranceColumns[0], note);
                     continue;
                 }
 
                 UnitSystem unitSystem = RowUnitSystem(sheet, row, unitColumn, mapping.DefaultUnitSystem);
-                ToleranceResult calc = _engine.Calculate(expected.Value, unitSystem, signal, tolerance);
 
-                if (!calc.IsCalculated)
+                for (int b = 0; b < blocks; b++)
                 {
-                    outcome.Status = RowStatus.NotCalculable;
-                    outcome.Note = calc.Message ?? calc.Outcome.ToString();
-                    CommentIfChecking(sheet, mode, row, toleranceColumn, outcome.Note);
-                    continue;
-                }
+                    int expectedColumn = expectedColumns[b];
+                    int toleranceColumn = toleranceColumns[b];
 
-                int? shownDigits = mapping.Precision.Mode == PrecisionMode.MatchExpected
-                    ? SignificantDigits.Count(sheet.GetDisplayText(row, expectedColumn))
-                    : null;
-                double rounded = TolerancePrecision.Round(calc.Tolerance, mapping.Precision, shownDigits);
-                outcome.Calculated = rounded;
-
-                if (mode == DatasheetRunMode.Apply)
-                {
-                    sheet.SetNumber(row, toleranceColumn, rounded);
-                    outcome.Status = calc.Extrapolated ? RowStatus.Extrapolated : RowStatus.Written;
-                    if (calc.Extrapolated)
+                    double? expected = sheet.GetNumber(row, expectedColumn);
+                    if (expected == null)
                     {
-                        outcome.Note = "Tolerance band extrapolates past the sensor range";
+                        string? raw = sheet.GetText(row, expectedColumn)?.Trim();
+                        if (string.IsNullOrEmpty(raw))
+                        {
+                            continue; // empty test point — normal on a wide datasheet
+                        }
+
+                        var bad = new RowOutcome
+                        {
+                            RowIndex = row,
+                            TestPoint = b + 1,
+                            SystemId = systemId!,
+                            Resolution = resolution.Step,
+                            Status = RowStatus.NotCalculable,
+                            Note = $"Expected value \"{raw}\" is not a number",
+                        };
+                        result.Rows.Add(bad);
+                        CommentIfChecking(sheet, mode, row, toleranceColumn, bad.Note);
+                        continue;
                     }
 
-                    continue;
-                }
+                    var outcome = new RowOutcome
+                    {
+                        RowIndex = row,
+                        TestPoint = b + 1,
+                        SystemId = systemId!,
+                        Resolution = resolution.Step,
+                    };
+                    result.Rows.Add(outcome);
 
-                double? existing = sheet.GetNumber(row, toleranceColumn);
-                outcome.Existing = existing;
-                if (existing == null || !Close(existing.Value, rounded))
-                {
-                    outcome.Status = RowStatus.Mismatch;
-                    outcome.Note =
-                        $"{CommentMarker} expected ± {rounded:0.######} (signal {signal.SensorName}, " +
-                        $"{DescribeBand(calc)}); found {(existing.HasValue ? existing.Value.ToString("0.######") : "blank")}";
-                    sheet.AddToolComment(row, toleranceColumn, outcome.Note);
-                }
-                else
-                {
-                    outcome.Status = calc.Extrapolated ? RowStatus.Extrapolated : RowStatus.Matches;
+                    ToleranceResult calc = _engine.Calculate(expected.Value, unitSystem, signal, tolerance);
+                    if (!calc.IsCalculated)
+                    {
+                        outcome.Status = RowStatus.NotCalculable;
+                        outcome.Note = calc.Message ?? calc.Outcome.ToString();
+                        CommentIfChecking(sheet, mode, row, toleranceColumn, outcome.Note);
+                        continue;
+                    }
+
+                    int? shownDigits = mapping.Precision.Mode == PrecisionMode.MatchExpected
+                        ? SignificantDigits.Count(sheet.GetDisplayText(row, expectedColumn))
+                        : null;
+                    double rounded = TolerancePrecision.Round(calc.Tolerance, mapping.Precision, shownDigits);
+                    outcome.Calculated = rounded;
+
+                    if (mode == DatasheetRunMode.Apply)
+                    {
+                        sheet.SetNumber(row, toleranceColumn, rounded);
+                        outcome.Status = calc.Extrapolated ? RowStatus.Extrapolated : RowStatus.Written;
+                        if (calc.Extrapolated)
+                        {
+                            outcome.Note = "Tolerance band extrapolates past the sensor range";
+                        }
+
+                        continue;
+                    }
+
+                    double? existing = sheet.GetNumber(row, toleranceColumn);
+                    outcome.Existing = existing;
+                    if (existing == null || !Close(existing.Value, rounded))
+                    {
+                        outcome.Status = RowStatus.Mismatch;
+                        outcome.Note =
+                            $"{CommentMarker} test point {b + 1}: expected ± {rounded:0.######} (signal {signal.SensorName}, " +
+                            $"{DescribeBand(calc)}); found {(existing.HasValue ? existing.Value.ToString("0.######") : "blank")}";
+                        sheet.AddToolComment(row, toleranceColumn, outcome.Note);
+                    }
+                    else
+                    {
+                        outcome.Status = calc.Extrapolated ? RowStatus.Extrapolated : RowStatus.Matches;
+                    }
                 }
             }
 
@@ -191,13 +239,14 @@ namespace ToleranceTool.Excel.Datasheet
                 result.SetupProblems.Add(issue.Message);
             }
 
-            int? expectedColumn = columns.Column(DatasheetParameter.Expected);
-            int? actualColumn = columns.Column(DatasheetParameter.Actual);
-            int? toleranceColumn = columns.Column(DatasheetParameter.Tolerance);
-            int? passFailColumn = columns.Column(DatasheetParameter.PassFail);
+            IReadOnlyList<int> expectedColumns = columns.Columns(DatasheetParameter.Expected);
+            IReadOnlyList<int> actualColumns = columns.Columns(DatasheetParameter.Actual);
+            IReadOnlyList<int> toleranceColumns = columns.Columns(DatasheetParameter.Tolerance);
+            IReadOnlyList<int> passFailColumns = columns.Columns(DatasheetParameter.PassFail);
             int? systemIdColumn = columns.Column(DatasheetParameter.SystemId);
 
-            if (expectedColumn == null || actualColumn == null || toleranceColumn == null || passFailColumn == null)
+            int blocks = new[] { expectedColumns.Count, actualColumns.Count, toleranceColumns.Count, passFailColumns.Count }.Min();
+            if (blocks == 0)
             {
                 result.SetupProblems.Add("Pass/Fail needs the Expected, Actual, Tolerance and Pass/Fail headers mapped.");
             }
@@ -207,38 +256,40 @@ namespace ToleranceTool.Excel.Datasheet
                 return result;
             }
 
+            result.TestPointsPerRow = blocks;
             int firstRow = mapping.FirstDataRowIndex ?? mapping.HeaderRowIndex + 1;
             int lastRow = mapping.LastDataRowIndex ?? sheet.LastRowIndex;
 
             for (int row = firstRow; row <= lastRow; row++)
             {
-                double? expected = sheet.GetNumber(row, expectedColumn!.Value);
-                double? actual = sheet.GetNumber(row, actualColumn!.Value);
-                double? tolerance = sheet.GetNumber(row, toleranceColumn!.Value);
+                string systemId = systemIdColumn != null ? sheet.GetText(row, systemIdColumn.Value)?.Trim() ?? string.Empty : string.Empty;
 
-                if (expected == null && actual == null && tolerance == null)
+                for (int b = 0; b < blocks; b++)
                 {
-                    continue;
+                    double? expected = sheet.GetNumber(row, expectedColumns[b]);
+                    double? actual = sheet.GetNumber(row, actualColumns[b]);
+                    double? tolerance = sheet.GetNumber(row, toleranceColumns[b]);
+
+                    if (expected == null && actual == null && tolerance == null)
+                    {
+                        continue;
+                    }
+
+                    var outcome = new RowOutcome { RowIndex = row, TestPoint = b + 1, SystemId = systemId };
+                    result.Rows.Add(outcome);
+
+                    if (expected == null || actual == null || tolerance == null)
+                    {
+                        outcome.Status = RowStatus.NotCalculable;
+                        outcome.Note = "Expected, Actual and Tolerance must all be present";
+                        continue;
+                    }
+
+                    bool pass = Math.Abs(actual.Value - expected.Value) <= Math.Abs(tolerance.Value) + 1e-12;
+                    sheet.SetText(row, passFailColumns[b], pass ? "Pass" : "Fail");
+                    outcome.Status = pass ? RowStatus.Matches : RowStatus.Mismatch;
+                    outcome.Calculated = actual.Value - expected.Value;
                 }
-
-                var outcome = new RowOutcome
-                {
-                    RowIndex = row,
-                    SystemId = systemIdColumn != null ? sheet.GetText(row, systemIdColumn.Value)?.Trim() ?? string.Empty : string.Empty,
-                };
-                result.Rows.Add(outcome);
-
-                if (expected == null || actual == null || tolerance == null)
-                {
-                    outcome.Status = RowStatus.NotCalculable;
-                    outcome.Note = "Expected, Actual and Tolerance must all be present";
-                    continue;
-                }
-
-                bool pass = Math.Abs(actual.Value - expected.Value) <= Math.Abs(tolerance.Value) + 1e-12;
-                sheet.SetText(row, passFailColumn!.Value, pass ? "Pass" : "Fail");
-                outcome.Status = pass ? RowStatus.Matches : RowStatus.Mismatch;
-                outcome.Calculated = actual.Value - expected.Value;
             }
 
             return result;
