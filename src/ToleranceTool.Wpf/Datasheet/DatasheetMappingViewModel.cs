@@ -101,6 +101,10 @@ namespace ToleranceTool.Wpf.Datasheet
         private string _status = string.Empty;
         private bool _refreshing;
 
+        /// <summary>System ID → override (a Universal ID or the "(skip)" marker). The single source of truth,
+        /// seeded from the saved mapping and edited via the review grid.</summary>
+        private readonly Dictionary<string, string> _overrides = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+
         public DatasheetMappingViewModel(IDatasheet sheet, string? mappingXml = null, Action<string>? persist = null)
         {
             _sheet = sheet;
@@ -123,6 +127,11 @@ namespace ToleranceTool.Wpf.Datasheet
             if (!string.IsNullOrWhiteSpace(mappingXml))
             {
                 _mapping = DatasheetMappingXml.FromXml(mappingXml!).Value;
+            }
+
+            foreach (KeyValuePair<string, string> kv in _mapping.ResolutionOverrides)
+            {
+                _overrides[kv.Key] = kv.Value;
             }
 
             PopulateHeaders();
@@ -297,11 +306,11 @@ namespace ToleranceTool.Wpf.Datasheet
                 }
             }
 
-            foreach (ReviewRowVm row in ReviewRows)
+            foreach (KeyValuePair<string, string> kv in _overrides)
             {
-                if (row.SystemId.Length > 0 && row.Override.Length > 0)
+                if (kv.Key.Length > 0 && !string.IsNullOrEmpty(kv.Value))
                 {
-                    mapping.ResolutionOverrides[row.SystemId] = row.Override;
+                    mapping.ResolutionOverrides[kv.Key] = kv.Value;
                 }
             }
 
@@ -395,7 +404,7 @@ namespace ToleranceTool.Wpf.Datasheet
                     SystemId = systemId!,
                 };
 
-                if (mapping.ResolutionOverrides.TryGetValue(systemId!, out string existing))
+                if (_overrides.TryGetValue(systemId!, out string existing))
                 {
                     vm.SetOverrideQuiet(existing);
                 }
@@ -410,8 +419,21 @@ namespace ToleranceTool.Wpf.Datasheet
         /// <summary>Recompute one row's resolution in place — no list churn, so a grid edit stays put.</summary>
         private void OnOverrideChanged(ReviewRowVm row)
         {
-            DatasheetMapping mapping = ReadMapping();
-            ApplyResolution(row, BuildResolver(mapping));
+            if (row.SystemId.Length == 0)
+            {
+                return;
+            }
+
+            if (string.IsNullOrEmpty(row.Override))
+            {
+                _overrides.Remove(row.SystemId);
+            }
+            else
+            {
+                _overrides[row.SystemId] = row.Override;
+            }
+
+            ApplyResolution(row, BuildResolver(ReadMapping()));
         }
 
         private static void ApplyResolution(ReviewRowVm row, SignalResolver resolver)
