@@ -6,4 +6,11 @@
     <Description>Domain model and the tolerance calculation engine. No Excel, no file I/O.</Description>
   </PropertyGroup>
 
+  <ItemGroup>
+    <!-- Expression evaluator for scale-type curves and tolerance-band formulas.
+         1.3.8 is the last zero-dependency release - a single assembly, which keeps
+         the packed .xll small. -->
+    <PackageReference Include="NCalc" Version="1.3.8" />
+  </ItemGroup>
+
 </Project>

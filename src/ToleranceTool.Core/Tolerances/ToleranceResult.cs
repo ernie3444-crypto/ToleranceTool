@@ -21,6 +21,12 @@ namespace ToleranceTool.Core.Tolerances
 
         /// <summary>The expected value was missing or not a number.</summary>
         InvalidExpected = 5,
+
+        /// <summary>The signal names a scale type that is not in the scale-type library.</summary>
+        ScaleTypeUnknown = 6,
+
+        /// <summary>The signal's configuration is unusable (e.g. a zero-width EU or raw range).</summary>
+        InvalidSignalConfig = 7,
     }
 
     /// <summary>
