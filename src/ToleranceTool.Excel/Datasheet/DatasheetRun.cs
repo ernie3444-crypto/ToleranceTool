@@ -81,6 +81,9 @@ namespace ToleranceTool.Excel.Datasheet
         /// <summary>Number of test-point column groups the run used per row.</summary>
         public int TestPointsPerRow { get; set; } = 1;
 
+        /// <summary>The tolerance multiplier that was applied (1 for accuracy testing).</summary>
+        public double ToleranceMultiplier { get; set; } = 1.0;
+
         public bool DidRun => SetupProblems.Count == 0;
 
         public string Summary()
@@ -92,11 +95,12 @@ namespace ToleranceTool.Excel.Datasheet
 
             string points = TestPointsPerRow > 1 ? $" across {TestPointsPerRow} test points/row" : string.Empty;
             string excluded = Excluded > 0 ? $", {Excluded} excluded" : string.Empty;
+            string factor = System.Math.Abs(ToleranceMultiplier - 1.0) > 1e-9 ? $"  [tolerance ×{ToleranceMultiplier:0.###}]" : string.Empty;
             string warn = Warnings.Count > 0 ? "  (" + string.Join("; ", Warnings) + ")" : string.Empty;
 
             return (Mode == DatasheetRunMode.Apply
                 ? $"{Written} written, {Extrapolated} extrapolated, {Uncheckable} not calculable{excluded}{points}."
-                : $"{Considered} checked, {Mismatched} mismatched, {Uncheckable} un-checkable{excluded}{points}.") + warn;
+                : $"{Considered} checked, {Mismatched} mismatched, {Uncheckable} un-checkable{excluded}{points}.") + factor + warn;
         }
     }
 }

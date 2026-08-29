@@ -17,7 +17,8 @@ namespace ToleranceTool.Configuration.Datasheet
                 "DatasheetMapping",
                 new XAttribute("orientation", mapping.Orientation),
                 new XAttribute("headerRow", mapping.HeaderRowIndex),
-                new XAttribute("defaultUnitSystem", mapping.DefaultUnitSystem));
+                new XAttribute("defaultUnitSystem", mapping.DefaultUnitSystem),
+                new XAttribute("toleranceMultiplier", mapping.ToleranceMultiplier.ToString("R", CultureInfo.InvariantCulture)));
 
             if (mapping.FirstDataRowIndex.HasValue)
             {
@@ -107,6 +108,12 @@ namespace ToleranceTool.Configuration.Datasheet
             if (Enum.TryParse((string?)root.Attribute("defaultUnitSystem"), out UnitSystem unitSystem))
             {
                 mapping.DefaultUnitSystem = unitSystem;
+            }
+
+            if (double.TryParse((string?)root.Attribute("toleranceMultiplier"), NumberStyles.Float, CultureInfo.InvariantCulture, out double multiplier)
+                && multiplier > 0)
+            {
+                mapping.ToleranceMultiplier = multiplier;
             }
 
             mapping.UnitColumnHeader = (string?)root.Attribute("unitColumnHeader");

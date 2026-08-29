@@ -39,6 +39,7 @@ namespace ToleranceTool.UI.Datasheet
         private readonly ComboBox _precisionMode = new ComboBox { DropDownStyle = ComboBoxStyle.DropDownList, Width = 160 };
         private readonly TextBox _precisionDigits = new TextBox { Width = 50, Text = "3" };
         private readonly ComboBox _rounding = new ComboBox { DropDownStyle = ComboBoxStyle.DropDownList, Width = 130 };
+        private readonly ComboBox _multiplier = new ComboBox { Width = 90, Text = "1" };
 
         private readonly DataGridView _review = new DataGridView
         {
@@ -68,6 +69,7 @@ namespace ToleranceTool.UI.Datasheet
             _precisionMode.SelectedIndex = 0;
             _rounding.Items.AddRange(new object[] { RoundingMode.HalfToEven, RoundingMode.HalfUp });
             _rounding.SelectedIndex = 0;
+            _multiplier.Items.AddRange(new object[] { "1", "1.5", "2", "3", "4" });
 
             _review.Columns.Add("Row", "Row");
             _review.Columns.Add("SystemId", "System ID");
@@ -141,13 +143,14 @@ namespace ToleranceTool.UI.Datasheet
 
             Row("Per-row unit column", _unitColumn, "Default unit system", _unitSystem);
             Row("Precision", _precisionMode, "Digits", _precisionDigits);
-            Row("Rounding", _rounding);
+            Row("Rounding", _rounding, "Tolerance ×", _multiplier);
 
             var hint = new Label
             {
                 Text =
                     "Precision — MatchExpected: round the tolerance to the decimal places shown in that row's Expected cell.  " +
                     "DecimalPlaces / SignificantFigures: a fixed \"Digits\" count for every row.\n" +
+                    "Tolerance × — multiply every calculated tolerance by this before rounding (1 for accuracy testing, e.g. 2 or 4 for functional testing).\n" +
                     "Expected / Tolerance / Actual / Pass-Fail headers may repeat — each repeated group is another test point on the same row.",
                 Dock = DockStyle.Top,
                 AutoSize = true,
@@ -267,6 +270,7 @@ namespace ToleranceTool.UI.Datasheet
             _precisionMode.SelectedItem = _mapping.Precision.Mode;
             _precisionDigits.Text = _mapping.Precision.Digits.ToString();
             _rounding.SelectedItem = _mapping.Precision.Rounding;
+            _multiplier.Text = _mapping.ToleranceMultiplier.ToString("0.###", System.Globalization.CultureInfo.InvariantCulture);
         }
 
         private DatasheetMapping ReadMappingFromControls()
@@ -277,6 +281,10 @@ namespace ToleranceTool.UI.Datasheet
                 HeaderRowIndex = HeaderRowIndex(),
                 DefaultUnitSystem = (UnitSystem)_unitSystem.SelectedItem,
                 UnitColumnHeader = Blank(_unitColumn.SelectedItem),
+                ToleranceMultiplier =
+                    double.TryParse(_multiplier.Text.Trim(), System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out double m) && m > 0
+                        ? m
+                        : 1.0,
             };
 
             foreach (var pair in _headerCombos)

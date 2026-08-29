@@ -38,7 +38,7 @@ namespace ToleranceTool.Excel.Datasheet
 
         public DatasheetRunResult Run(IDatasheet sheet, DatasheetMapping mapping, DatasheetRunMode mode)
         {
-            var result = new DatasheetRunResult { Mode = mode };
+            var result = new DatasheetRunResult { Mode = mode, ToleranceMultiplier = mapping.ToleranceMultiplier };
 
             if (mapping.Orientation == DatasheetOrientation.ColumnPerCase)
             {
@@ -211,10 +211,12 @@ namespace ToleranceTool.Excel.Datasheet
                         continue;
                     }
 
+                    double factor = mapping.ToleranceMultiplier > 0 ? mapping.ToleranceMultiplier : 1.0;
+
                     int? shownDecimals = mapping.Precision.Mode == PrecisionMode.MatchExpected
                         ? DisplayedPrecision.DecimalPlaces(sheet.GetDisplayText(row, expectedColumn))
                         : null;
-                    double rounded = TolerancePrecision.Round(calc.Tolerance, mapping.Precision, shownDecimals);
+                    double rounded = TolerancePrecision.Round(calc.Tolerance * factor, mapping.Precision, shownDecimals);
                     outcome.Calculated = rounded;
 
                     if (mode == DatasheetRunMode.Apply)
@@ -233,9 +235,10 @@ namespace ToleranceTool.Excel.Datasheet
                     outcome.Existing = existing;
                     if (existing == null || !Close(existing.Value, rounded))
                     {
+                        string factorNote = factor != 1.0 ? $" ×{factor:0.###}" : string.Empty;
                         outcome.Status = RowStatus.Mismatch;
                         outcome.Note =
-                            $"{CommentMarker} test point {b + 1}: expected ± {rounded:0.######} (signal {signal.SensorName}, " +
+                            $"{CommentMarker} test point {b + 1}: expected ± {rounded:0.######}{factorNote} (signal {signal.SensorName}, " +
                             $"{DescribeBand(calc)}); found {(existing.HasValue ? existing.Value.ToString("0.######") : "blank")}";
                         sheet.AddToolComment(row, toleranceColumn, outcome.Note);
                     }

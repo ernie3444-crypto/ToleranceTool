@@ -81,6 +81,23 @@ namespace ToleranceTool.Tests
         }
 
         [Fact]
+        public void Apply_MultipliesTheToleranceByTheMappingFactorBeforeRounding()
+        {
+            (FakeDatasheet sheet, DatasheetMapping mapping, DatasheetRunner runner) = Setup(new[]
+            {
+                new string?[] { "Signal", "Expected", "Tol" },
+                new string?[] { "FT-201", "125", "" },
+            });
+            mapping.ToleranceMultiplier = 4;
+
+            DatasheetRunResult result = runner.Run(sheet, mapping, DatasheetRunMode.Apply);
+
+            // accuracy tolerance is 0.75 -> functional ×4 = 3.0
+            Assert.Equal(3.0, sheet.Written[(1, 2)], 6);
+            Assert.Equal(4, result.ToleranceMultiplier, 6);
+        }
+
+        [Fact]
         public void Run_LeavesExcludedRowsUntouched()
         {
             (FakeDatasheet sheet, DatasheetMapping mapping, DatasheetRunner _) = Setup(new[]
@@ -357,6 +374,7 @@ namespace ToleranceTool.Tests
                 DefaultUnitSystem = Core.Signals.UnitSystem.Si,
                 UnitColumnHeader = "Units",
                 Precision = PrecisionPolicy.SignificantFigures(4, RoundingMode.HalfUp),
+                ToleranceMultiplier = 2.5,
             };
             mapping.Headers[DatasheetParameter.SystemId] = "Signal Name";
             mapping.Headers[DatasheetParameter.Expected] = "Expect'd";
@@ -376,6 +394,7 @@ namespace ToleranceTool.Tests
             Assert.Equal(RoundingMode.HalfUp, reloaded.Precision.Rounding);
             Assert.Equal("Expect'd", reloaded.Header(DatasheetParameter.Expected));
             Assert.Equal("UT-1002", reloaded.ResolutionOverrides["Loop 4"]);
+            Assert.Equal(2.5, reloaded.ToleranceMultiplier, 6);
         }
     }
 }

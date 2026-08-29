@@ -135,6 +135,11 @@ Make the datasheet the **active worksheet**, then **Setup → Datasheet Mapping*
      place; `125` → whole number). Recommended.
    - *Decimal places* / *Significant figures* — a fixed **Digits** count for every row.
    - Rounding mode: half-to-even (default) or half-up.
+   - **Tolerance ×** — a factor applied to every calculated tolerance before
+     rounding. Leave at **1** for accuracy testing; set **2** or **4** for
+     functional testing, where a looser band is acceptable. The tolerance library
+     holds the accuracy tolerances; this widens them per sheet without editing the
+     library.
 6. **Resolution review** — the grid shows every data row's System ID, how it
    resolved, and the signal it landed on. The resolution ladder is:
 

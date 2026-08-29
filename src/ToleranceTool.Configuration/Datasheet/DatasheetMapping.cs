@@ -53,6 +53,12 @@ namespace ToleranceTool.Configuration.Datasheet
 
         public PrecisionPolicy Precision { get; set; } = PrecisionPolicy.MatchExpected();
 
+        /// <summary>
+        /// Factor applied to every calculated tolerance before rounding. 1 for
+        /// accuracy testing; a looser 2 / 4 for functional testing.
+        /// </summary>
+        public double ToleranceMultiplier { get; set; } = 1.0;
+
         /// <summary>System ID → Universal ID corrections the user confirmed in the review grid. Sits above the whole ladder.</summary>
         public Dictionary<string, string> ResolutionOverrides { get; } =
             new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
