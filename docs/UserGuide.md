@@ -84,11 +84,17 @@ value and see each term resolved, the ± band, and which path was used.
    their columns (a column letter, or a 1-based number). Column-oriented / key-value
    sheets are supported — set the source's orientation and give row numbers as
    locators.
-4. **Build preview.** Every signal appears with a **Complete** flag (green when every
-   required field resolved). Incomplete rows list the exact field and source that
-   failed.
-5. **Save signal set…** — writes `last-signal-set.xml` into `%APPDATA%\ToleranceTool`,
-   which the datasheet pane reads.
+4. **Build preview.** Every signal appears with a **Complete** flag and a **Missing**
+   column naming any required field that did not resolve. Incomplete signals are
+   excluded from the saved set. Use **Hide incomplete** to focus on the usable ones.
+5. **Save for datasheet use** — writes the resolved set to
+   `%APPDATA%\ToleranceTool\last-signal-set.xml`; this is what **Apply / Check** read.
+   (**Export as…** writes a copy elsewhere.)
+
+Your sources and field mappings are remembered — they are saved to
+`%APPDATA%\ToleranceTool\import-sources.xml` when you build a preview or close the
+wizard, and reloaded next time. If a source file has moved, the wizard keeps the
+mapping and just reports the missing file when you build the preview.
 
 Sources are joined with a left join from the master on Universal ID. Raw ranges you
 do not import are filled from the signal-type registry.
@@ -171,7 +177,13 @@ flagged and its Tolerance cell is left untouched rather than writing a bad numbe
 | The add-in | `%LOCALAPPDATA%\ToleranceTool\bin\ToleranceTool64-packed.xll` |
 | Shared libraries | `%APPDATA%\ToleranceTool\*.xml` |
 | Last imported signal set | `%APPDATA%\ToleranceTool\last-signal-set.xml` |
-| Per-sheet datasheet mapping | in the workbook, mirrored to `%APPDATA%\ToleranceTool\sheets\<sheet>.xml` |
+| Import sources + field mappings | `%APPDATA%\ToleranceTool\import-sources.xml` |
+| Per-sheet datasheet mapping | `%APPDATA%\ToleranceTool\sheets\<sheet>.xml` |
+
+The **Status** group on the ribbon shows readiness — *Signal Config* (is a signal
+set imported?) and *Tolerance Config* (does the library cover every signal type /
+module the imported signals use?). It refreshes when you close a setup dialog or
+run Apply / Check; the **Refresh** button re-checks on demand.
 
 ---
 

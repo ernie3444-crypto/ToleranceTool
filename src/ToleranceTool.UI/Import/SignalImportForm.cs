@@ -77,6 +77,48 @@ namespace ToleranceTool.UI.Import
 
             ResultSet = new ResolvedSignalSet(Array.Empty<ResolvedSignal>());
             SetEditorEnabled(false);
+
+            LoadSavedSources();
+        }
+
+        private void LoadSavedSources()
+        {
+            try
+            {
+                List<ImportSourceDefinition> saved = ImportSourceDefinitionsXml.Load(ConfigurationPaths.ImportSourcesFile);
+                if (saved.Count == 0)
+                {
+                    return;
+                }
+
+                _sources.AddRange(saved);
+                RefreshSourceList(select: 0);
+                _status.Text = $"Loaded {saved.Count} saved source(s). Missing files are reported when you build the preview.";
+            }
+            catch
+            {
+                // start empty on any load problem
+            }
+        }
+
+        private void SaveSources()
+        {
+            try
+            {
+                CommitShownSource();
+                Directory.CreateDirectory(ConfigurationPaths.RootFolder);
+                ImportSourceDefinitionsXml.Save(_sources, ConfigurationPaths.ImportSourcesFile);
+            }
+            catch
+            {
+                // non-fatal — the setup just will not persist this time
+            }
+        }
+
+        protected override void OnFormClosing(FormClosingEventArgs e)
+        {
+            SaveSources();
+            base.OnFormClosing(e);
         }
 
         /// <summary>The last preview build (all signals). Only the complete ones are saved / used downstream.</summary>
@@ -142,8 +184,8 @@ namespace ToleranceTool.UI.Import
             var previewPanel = new Panel { Dock = DockStyle.Fill };
             var previewButtons = new FlowLayoutPanel { Dock = DockStyle.Bottom, Height = 36 };
             previewButtons.Controls.Add(Button("Build preview", BuildPreview));
-            previewButtons.Controls.Add(Button("Save signal set…", SaveSignalSet));
-            previewButtons.Controls.Add(Button("Use this set", () => { DialogResult = DialogResult.OK; Close(); }));
+            previewButtons.Controls.Add(Button("Save for datasheet use", SaveSignalSet));
+            previewButtons.Controls.Add(Button("Export as…", ExportSignalSet));
             previewButtons.Controls.Add(_hideIncomplete);
             previewPanel.Controls.Add(_preview);
             previewPanel.Controls.Add(previewButtons);
@@ -495,6 +537,8 @@ namespace ToleranceTool.UI.Import
             {
                 _issues.Items.Add(_status.Text);
             }
+
+            SaveSources();
         }
 
         private void FillPreviewGrid(ResolvedSignalSet set)
@@ -526,30 +570,53 @@ namespace ToleranceTool.UI.Import
             }
         }
 
+        private bool HasCompleteSignals()
+        {
+            if (ResultSet.Complete.Any())
+            {
+                return true;
+            }
+
+            _issues.Items.Add("Build the preview first (and make sure at least one signal is complete).");
+            return false;
+        }
+
+        /// <summary>Writes the resolved set to the standard location the datasheet run reads.</summary>
         private void SaveSignalSet()
         {
-            if (ResultSet.Complete.Count() == 0)
+            if (!HasCompleteSignals())
             {
-                _issues.Items.Add("Build the preview first (and make sure at least one signal is complete).");
                 return;
             }
 
-            string defaultPath = Path.Combine(ConfigurationPaths.RootFolder, "last-signal-set.xml");
-            Directory.CreateDirectory(ConfigurationPaths.RootFolder);
-            using (var save = new SaveFileDialog
+            try
             {
-                Filter = "Signal set (*.xml)|*.xml",
-                FileName = Path.GetFileName(defaultPath),
-                InitialDirectory = ConfigurationPaths.RootFolder,
-            })
+                Directory.CreateDirectory(ConfigurationPaths.RootFolder);
+                SignalConfigSetXml.Save(ResultSet.Complete.Select(s => s.Config), ConfigurationPaths.ResolvedSignalSetFile);
+                SaveSources();
+                _status.Text =
+                    $"Saved {ResultSet.Complete.Count()} signal(s) for datasheet use — Apply / Check will use these.";
+            }
+            catch (Exception ex)
             {
-                if (save.ShowDialog(this) != DialogResult.OK)
-                {
-                    return;
-                }
+                MessageBox.Show(this, ex.Message, "Save failed", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+        }
 
-                SignalConfigSetXml.Save(ResultSet.Complete.Select(s => s.Config), save.FileName);
-                _status.Text = $"Saved {ResultSet.Complete.Count()} complete signal(s) to {save.FileName}";
+        private void ExportSignalSet()
+        {
+            if (!HasCompleteSignals())
+            {
+                return;
+            }
+
+            using (var save = new SaveFileDialog { Filter = "Signal set (*.xml)|*.xml", FileName = "signal-set.xml" })
+            {
+                if (save.ShowDialog(this) == DialogResult.OK)
+                {
+                    SignalConfigSetXml.Save(ResultSet.Complete.Select(s => s.Config), save.FileName);
+                    _status.Text = $"Exported {ResultSet.Complete.Count()} signal(s) to {save.FileName}";
+                }
             }
         }
 

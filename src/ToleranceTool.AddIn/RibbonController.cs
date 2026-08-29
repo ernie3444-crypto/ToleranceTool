@@ -4,11 +4,13 @@ using System.Linq;
 using System.Runtime.InteropServices;
 using System.Windows.Forms;
 using ExcelDna.Integration.CustomUI;
+using System.Collections.Generic;
 using ToleranceTool.Configuration;
 using ToleranceTool.Configuration.Aliases;
 using ToleranceTool.Configuration.Datasheet;
 using ToleranceTool.Configuration.Tolerances;
 using ToleranceTool.Core.Scales;
+using ToleranceTool.Core.Signals;
 using ToleranceTool.Excel;
 using ToleranceTool.Excel.Datasheet;
 using ToleranceTool.Import;
@@ -71,13 +73,66 @@ namespace ToleranceTool.AddIn
         public string GetStatusLabel(IRibbonControl control)
         {
             string sheet = SafeActiveSheetName();
-            // Readiness checks are wired in P3/P2; show placeholders for now.
-            return $"Sheet: {sheet}    Signal Config: —    Tolerance Config: —";
+            return $"Sheet: {sheet}     Signal Config: {SignalConfigStatus()}     Tolerance Config: {ToleranceConfigStatus()}";
         }
 
-        public void OnRefreshStatus(IRibbonControl control)
+        public void OnRefreshStatus(IRibbonControl control) => RefreshStatus();
+
+        private void RefreshStatus() => _ribbon?.InvalidateControl("ttStatusLabel");
+
+        private static List<SignalConfig> LoadSignals() =>
+            File.Exists(ConfigurationPaths.ResolvedSignalSetFile)
+                ? SignalConfigSetXml.Load(ConfigurationPaths.ResolvedSignalSetFile).Value
+                : new List<SignalConfig>();
+
+        private static string SignalConfigStatus()
         {
-            _ribbon?.InvalidateControl("ttStatusLabel");
+            try
+            {
+                if (!File.Exists(ConfigurationPaths.ResolvedSignalSetFile))
+                {
+                    return "not imported";
+                }
+
+                int count = LoadSignals().Count;
+                return count == 0 ? "empty" : $"ready ({count} signals)";
+            }
+            catch
+            {
+                return "unreadable";
+            }
+        }
+
+        private static string ToleranceConfigStatus()
+        {
+            try
+            {
+                if (!File.Exists(ConfigurationPaths.ToleranceLibraryFile))
+                {
+                    return "no library";
+                }
+
+                ToleranceLibrary library = ToleranceLibraryXml.Load(ConfigurationPaths.ToleranceLibraryFile).Value;
+
+                var signals = LoadSignals();
+                if (signals.Count > 0)
+                {
+                    var required = signals.Select(s => (s.SignalType, s.ModuleType));
+                    var missing = library.MissingFor(required);
+                    if (missing.Count > 0)
+                    {
+                        return $"{missing.Count} missing ({string.Join(", ", missing.Take(2).Select(m => $"{m.SignalType}/{m.ModuleType}"))}…)";
+                    }
+
+                    return "ready";
+                }
+
+                return library.Count == 0 ? "empty" : $"{library.Count} defined";
+            }
+            catch
+            {
+                return "unreadable";
+            }
         }
 
         public void OnSetup(IRibbonControl control)
@@ -119,7 +174,7 @@ namespace ToleranceTool.AddIn
             try
             {
                 var sheet = new ExcelDatasheet(ExcelApplication.ActiveSheet);
-                string path = SheetMappingPath(sheet.Name);
+                string path = ConfigurationPaths.SheetMappingFile(sheet.Name);
                 string? xml = File.Exists(path) ? File.ReadAllText(path) : null;
                 ShowDialog(new DatasheetMappingForm(sheet, xml));
             }
@@ -129,7 +184,7 @@ namespace ToleranceTool.AddIn
             }
         }
 
-        private static void ShowDialog(Form form)
+        private void ShowDialog(Form form)
         {
             try
             {
@@ -142,6 +197,7 @@ namespace ToleranceTool.AddIn
             finally
             {
                 form.Dispose();
+                RefreshStatus();
             }
         }
 
@@ -169,7 +225,7 @@ namespace ToleranceTool.AddIn
             {
                 var sheet = new ExcelDatasheet(ExcelApplication.ActiveSheet);
 
-                string mappingPath = SheetMappingPath(sheet.Name);
+                string mappingPath = ConfigurationPaths.SheetMappingFile(sheet.Name);
                 if (!File.Exists(mappingPath))
                 {
                     MessageBox.Show(
@@ -188,11 +244,7 @@ namespace ToleranceTool.AddIn
                     ? AliasTablesXml.Load(ConfigurationPaths.AliasTablesFile).Value
                     : AliasTableSet.Empty();
 
-                string sidecar = Path.Combine(ConfigurationPaths.RootFolder, "last-signal-set.xml");
-                var signals = File.Exists(sidecar)
-                    ? SignalConfigSetXml.Load(sidecar).Value
-                    : new System.Collections.Generic.List<Core.Signals.SignalConfig>();
-
+                var signals = LoadSignals();
                 ScaleCurveLibrary curves = LoadCurves();
 
                 var resolver = new SignalResolver(signals, aliases, mapping.ResolutionOverrides);
@@ -201,6 +253,7 @@ namespace ToleranceTool.AddIn
                     ? runner.Run(sheet, mapping, mode.Value)
                     : runner.RunPassFail(sheet, mapping);
 
+                RefreshStatus();
                 string title = mode.HasValue ? mode.Value.ToString() : "Pass / Fail";
                 MessageBox.Show(result.Summary(), $"{title} — {sheet.Name}", MessageBoxButtons.OK, MessageBoxIcon.Information);
             }
@@ -229,12 +282,6 @@ namespace ToleranceTool.AddIn
             }
 
             return ScaleCurveLibrary.CreateDefault();
-        }
-
-        private static string SheetMappingPath(string sheetName)
-        {
-            string safe = string.Concat(sheetName.Select(c => Path.GetInvalidFileNameChars().Contains(c) ? '_' : c));
-            return Path.Combine(ConfigurationPaths.RootFolder, "sheets", safe + ".xml");
         }
 
         // ReSharper restore UnusedParameter.Global

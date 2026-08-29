@@ -193,13 +193,14 @@ namespace ToleranceTool.UI.Datasheet
                 _aliases = AliasTablesXml.Load(ConfigurationPaths.AliasTablesFile).Value;
             }
 
-            string sidecar = Path.Combine(ConfigurationPaths.RootFolder, "last-signal-set.xml");
-            if (File.Exists(sidecar))
+            if (File.Exists(ConfigurationPaths.ResolvedSignalSetFile))
             {
-                _signals = SignalConfigSetXml.Load(sidecar).Value;
+                _signals = SignalConfigSetXml.Load(ConfigurationPaths.ResolvedSignalSetFile).Value;
             }
 
-            _status.Text = $"{_signals.Count} signal(s), {_tolerances.Count} tolerance(s), {_aliases.Tables.Count} alias table(s) loaded.";
+            _status.Text = _signals.Count == 0
+                ? "No signal set imported yet — use Signal Configuration first, then 'Save for datasheet use'."
+                : $"{_signals.Count} signal(s), {_tolerances.Count} tolerance(s), {_aliases.Tables.Count} alias table(s) loaded.";
         }
 
         private void LoadSignalSet()
@@ -319,8 +320,8 @@ namespace ToleranceTool.UI.Datasheet
             try
             {
                 _persistMapping?.Invoke(xml);
-                Directory.CreateDirectory(Path.Combine(ConfigurationPaths.RootFolder, "sheets"));
-                File.WriteAllText(SheetMappingPath(), xml);
+                Directory.CreateDirectory(ConfigurationPaths.SheetsFolder);
+                File.WriteAllText(ConfigurationPaths.SheetMappingFile(_sheet.Name), xml);
                 _status.Text = $"Mapping saved for \"{_sheet.Name}\".";
             }
             catch (Exception ex)
@@ -328,9 +329,6 @@ namespace ToleranceTool.UI.Datasheet
                 MessageBox.Show(this, ex.Message, "Save failed", MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
         }
-
-        private string SheetMappingPath() =>
-            Path.Combine(ConfigurationPaths.RootFolder, "sheets", MakeSafe(_sheet.Name) + ".xml");
 
         // --- review + run ---------------------------------------------
 
@@ -466,9 +464,6 @@ namespace ToleranceTool.UI.Datasheet
             string text = Convert.ToString(value)?.Trim() ?? string.Empty;
             return text.Length == 0 ? null : text;
         }
-
-        private static string MakeSafe(string name) =>
-            string.Concat(name.Select(c => Path.GetInvalidFileNameChars().Contains(c) ? '_' : c));
 
         private static Font Bold() => new Font(SystemFonts.DefaultFont, FontStyle.Bold);
 
