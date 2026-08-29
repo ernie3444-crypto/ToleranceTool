@@ -27,6 +27,10 @@ namespace ToleranceTool.UI.Tolerances
         private ToleranceLibrary _library = new ToleranceLibrary();
         private string _path;
 
+        private SplitContainer _outer = null!;
+        private SplitContainer _top = null!;
+        private SplitContainer _bottom = null!;
+
         private readonly ListView _definitions = new ListView
         {
             View = View.Details,
@@ -59,8 +63,8 @@ namespace ToleranceTool.UI.Tolerances
 
             Text = "Tolerance Editor";
             StartPosition = FormStartPosition.CenterParent;
-            ClientSize = new Size(940, 620);
-            MinimumSize = new Size(760, 520);
+            ClientSize = new Size(980, 700);
+            MinimumSize = new Size(780, 560);
 
             _definitions.Columns.Add("Signal Type", 130);
             _definitions.Columns.Add("Module Type", 110);
@@ -89,6 +93,39 @@ namespace ToleranceTool.UI.Tolerances
             LoadLibrary(_path, announceMissing: false);
         }
 
+        protected override void OnLoad(EventArgs e)
+        {
+            base.OnLoad(e);
+            SplitAt(_outer, 0.40);
+            SplitAt(_top, 0.52);
+            SplitAt(_bottom, 0.60);
+
+            if (Selected == null && _definitions.Items.Count > 0)
+            {
+                _definitions.Items[0].Selected = true;
+                _definitions.Select();
+            }
+
+            RefreshPreview();
+        }
+
+        private static void SplitAt(SplitContainer split, double fraction)
+        {
+            try
+            {
+                int extent = split.Orientation == Orientation.Vertical ? split.Width : split.Height;
+                int distance = Math.Max(split.Panel1MinSize, Math.Min((int)(extent * fraction), extent - split.Panel2MinSize));
+                if (distance > 0)
+                {
+                    split.SplitterDistance = distance;
+                }
+            }
+            catch (InvalidOperationException)
+            {
+                // window too small at load — the default split is fine
+            }
+        }
+
         // --- layout -----------------------------------------------------------
 
         private Control BuildToolbar()
@@ -107,10 +144,12 @@ namespace ToleranceTool.UI.Tolerances
 
         private Control BuildBody()
         {
-            var outer = new SplitContainer { Dock = DockStyle.Fill, Orientation = Orientation.Horizontal, SplitterDistance = 260 };
+            var outer = new SplitContainer { Dock = DockStyle.Fill, Orientation = Orientation.Horizontal };
+            _outer = outer;
 
             // top: definitions | terms
-            var top = new SplitContainer { Dock = DockStyle.Fill, SplitterDistance = 560 };
+            var top = new SplitContainer { Dock = DockStyle.Fill };
+            _top = top;
             top.Panel1.Controls.Add(_definitions);
             top.Panel1.Controls.Add(new Label { Text = "Definitions", Dock = DockStyle.Top, Height = 20, Font = Bold() });
 
@@ -125,12 +164,13 @@ namespace ToleranceTool.UI.Tolerances
             top.Panel2.Controls.Add(termsPanel);
 
             // bottom: preview | issues
-            var bottom = new SplitContainer { Dock = DockStyle.Fill, SplitterDistance = 560 };
+            var bottom = new SplitContainer { Dock = DockStyle.Fill };
+            _bottom = bottom;
 
             var previewPanel = new Panel { Dock = DockStyle.Fill };
             previewPanel.Controls.Add(_preview);
             previewPanel.Controls.Add(BuildPreviewInputs());
-            previewPanel.Controls.Add(new Label { Text = "Live preview", Dock = DockStyle.Top, Height = 20, Font = Bold() });
+            previewPanel.Controls.Add(new Label { Text = "Live preview  —  sample signal + expected value → resolved band", Dock = DockStyle.Top, Height = 20, Font = Bold() });
             bottom.Panel1.Controls.Add(previewPanel);
 
             bottom.Panel2.Controls.Add(_issues);
@@ -160,6 +200,10 @@ namespace ToleranceTool.UI.Tolerances
             Pair("EU high (SI)", _euHighSi);
             Pair("Units", _unitSystem);
             Pair("Expected", _expected);
+
+            var recalc = new Button { Text = "Recalculate", AutoSize = true, Margin = new Padding(3) };
+            recalc.Click += (s, e) => RefreshPreview();
+            grid.Controls.Add(recalc);
             return grid;
         }
 
@@ -444,28 +488,43 @@ namespace ToleranceTool.UI.Tolerances
 
         private void RefreshPreview()
         {
-            ToleranceDefinition? definition = Selected;
-            if (definition == null)
+            try
             {
-                _preview.Text = "Select a definition to preview its band.";
-                return;
-            }
+                ToleranceDefinition? definition = Selected;
+                if (definition == null)
+                {
+                    _preview.Text = _library.Count == 0
+                        ? "No tolerances yet — add one, then this shows its resolved band."
+                        : "Select a definition on the left to preview its band.";
+                    return;
+                }
 
-            if (!TryReadSignal(out SignalConfig signal, out string error))
+                if (definition.Terms.Count == 0)
+                {
+                    _preview.Text = $"\"{ToleranceLibrary.KeyOf(definition)}\" has no terms yet. Add a term to see the band.";
+                    return;
+                }
+
+                if (!TryReadSignal(out SignalConfig signal, out string error))
+                {
+                    _preview.Text = "Preview inputs: " + error;
+                    return;
+                }
+
+                if (!double.TryParse(_expected.Text.Trim(), NumberStyles.Float, CultureInfo.InvariantCulture, out double expected))
+                {
+                    _preview.Text = "Preview inputs: the expected value must be a number.";
+                    return;
+                }
+
+                var unitSystem = _unitSystem.SelectedItem is UnitSystem u ? u : UnitSystem.English;
+                ToleranceResult result = _engine.Calculate(expected, unitSystem, signal, definition);
+                _preview.Text = Describe(result, expected, unitSystem);
+            }
+            catch (Exception ex)
             {
-                _preview.Text = "Preview inputs: " + error;
-                return;
+                _preview.Text = "Preview error: " + ex.Message;
             }
-
-            if (!double.TryParse(_expected.Text.Trim(), NumberStyles.Float, CultureInfo.InvariantCulture, out double expected))
-            {
-                _preview.Text = "Preview inputs: expected value must be a number.";
-                return;
-            }
-
-            var unitSystem = (UnitSystem)_unitSystem.SelectedItem;
-            ToleranceResult result = _engine.Calculate(expected, unitSystem, signal, definition);
-            _preview.Text = Describe(result, expected, unitSystem);
         }
 
         private bool TryReadSignal(out SignalConfig signal, out string error)
@@ -495,10 +554,16 @@ namespace ToleranceTool.UI.Tolerances
             }
 
             ToleranceDefinition? definition = Selected;
+            if (definition != null && !definition.IsEuOnly && s.RawLow == s.RawHigh)
+            {
+                error = "raw low and raw high must differ — this band applies in raw units and needs a raw range.";
+                return false;
+            }
+
             s.SignalType = definition?.SignalType ?? string.Empty;
             s.ModuleType = definition?.ModuleType ?? string.Empty;
-            s.ScaleType = (string)_scaleType.SelectedItem;
-            s.ConversionSense = (ConversionSense)_sense.SelectedItem;
+            s.ScaleType = _scaleType.SelectedItem as string ?? ScaleTypeNames.Linear;
+            s.ConversionSense = _sense.SelectedItem is ConversionSense sense ? sense : ConversionSense.Direct;
             error = string.Empty;
             return true;
         }

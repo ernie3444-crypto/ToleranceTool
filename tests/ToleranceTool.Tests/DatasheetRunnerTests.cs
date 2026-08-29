@@ -96,6 +96,37 @@ namespace ToleranceTool.Tests
         }
 
         [Fact]
+        public void Run_ReportsASignalWithNoRawRangeWhenTheToleranceNeedsTheRoundTrip()
+        {
+            var sheet = new FakeDatasheet("NoRaw", new[]
+            {
+                new string?[] { "Signal", "Expected", "Tol" },
+                new string?[] { "FT-201", "125", "" },
+            });
+            var mapping = new DatasheetMapping { HeaderRowIndex = 0 };
+            mapping.Headers[DatasheetParameter.SystemId] = "Signal";
+            mapping.Headers[DatasheetParameter.Expected] = "Expected";
+            mapping.Headers[DatasheetParameter.Tolerance] = "Tol";
+
+            var signal = new SignalConfig
+            {
+                SensorName = "FT-201", ScaleType = ScaleTypeNames.Linear, SignalType = "4-20mA", ModuleType = "AI-871",
+                RawLow = 0, RawHigh = 0, EuLow = 0, EuHigh = 250, EuLowSi = 0, EuHighSi = 250,
+            };
+            var tolerances = new ToleranceLibrary();
+            var def = new ToleranceDefinition { SignalType = "4-20mA", ModuleType = "AI-871" };
+            def.Terms.Add(new ToleranceTerm { Kind = ToleranceTermKind.Percent, Value = 0.003, PercentBasis = PercentBasis.RawSpan });
+            tolerances.Add(def);
+
+            var runner = new DatasheetRunner(new SignalResolver(new[] { signal }), tolerances, ScaleCurveLibrary.CreateDefault());
+            DatasheetRunResult result = runner.Run(sheet, mapping, DatasheetRunMode.Apply);
+
+            RowOutcome outcome = result.Rows.Single();
+            Assert.Equal(RowStatus.NotCalculable, outcome.Status);
+            Assert.Contains("no raw range", outcome.Note);
+        }
+
+        [Fact]
         public void Run_ReportsMissingToleranceDefinitions()
         {
             (FakeDatasheet sheet, DatasheetMapping mapping, DatasheetRunner runner) = Setup(new[]

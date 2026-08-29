@@ -132,6 +132,24 @@ namespace ToleranceTool.Excel.Datasheet
                     continue;
                 }
 
+                if (!tolerance.IsEuOnly && signal.RawSpan == 0)
+                {
+                    string note =
+                        $"Signal \"{signal.SensorName}\" (type {signal.SignalType}) has no raw range, " +
+                        "which this tolerance needs. Add that signal type to the Signal Type Registry, " +
+                        "or map Raw Low / Raw High in the import.";
+                    result.Rows.Add(new RowOutcome
+                    {
+                        RowIndex = row,
+                        SystemId = systemId!,
+                        Resolution = resolution.Step,
+                        Status = RowStatus.NotCalculable,
+                        Note = note,
+                    });
+                    CommentIfChecking(sheet, mode, row, toleranceColumns[0], note);
+                    continue;
+                }
+
                 UnitSystem unitSystem = RowUnitSystem(sheet, row, unitColumn, mapping.DefaultUnitSystem);
 
                 for (int b = 0; b < blocks; b++)

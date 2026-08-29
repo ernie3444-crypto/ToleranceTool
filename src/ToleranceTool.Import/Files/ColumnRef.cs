@@ -55,7 +55,7 @@ namespace ToleranceTool.Import.Files
                 return false;
             }
 
-            string trimmed = reference.Trim();
+            string trimmed = reference!.Trim();
             if (int.TryParse(trimmed, out int oneBased))
             {
                 if (oneBased < 1)

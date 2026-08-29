@@ -5,6 +5,7 @@ using System.IO;
 using System.Linq;
 using System.Windows.Forms;
 using ToleranceTool.Configuration;
+using ToleranceTool.Configuration.SignalTypes;
 using ToleranceTool.Core.Signals;
 using ToleranceTool.Import;
 using ToleranceTool.Import.Access;
@@ -543,6 +544,22 @@ namespace ToleranceTool.UI.Import
             }
 
             var builder = new SignalSetBuilder();
+
+            SignalTypeRegistry registry = File.Exists(ConfigurationPaths.SignalTypeRegistryFile)
+                ? SignalTypeRegistryXml.Load(ConfigurationPaths.SignalTypeRegistryFile).Value
+                : new SignalTypeRegistry();
+
+            if (registry.Count > 0)
+            {
+                builder.WithRegistry(registry);
+            }
+            else if (!_sources.Any(s => s.Binding(SignalField.RawLow)?.Locator.Length > 0))
+            {
+                _issues.Items.Add(
+                    "No signal-type registry — raw ranges will be blank, so raw-space tolerances cannot be calculated. " +
+                    "Open Setup → Signal Types to add your signal types (name + raw low/high), or map Raw Low / Raw High here.");
+            }
+
             foreach (ImportSourceDefinition definition in _sources)
             {
                 var effective = new ImportSourceDefinition(definition.Name, definition.Kind, definition.Location)
