@@ -1,0 +1,31 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <AssemblyName>ToleranceTool.AddIn</AssemblyName>
+    <RootNamespace>ToleranceTool.AddIn</RootNamespace>
+    <Description>Excel-DNA host: add-in entry point, ribbon, task-pane registration.</Description>
+
+    <!-- 64-bit Excel only: skip the 32-bit .xll, name the output ToleranceTool-AddIn64.xll -->
+    <ExcelAddInFileName>ToleranceTool</ExcelAddInFileName>
+    <ExcelDnaCreate32BitAddIn>false</ExcelDnaCreate32BitAddIn>
+    <RunExcelDnaPack>true</RunExcelDnaPack>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="ExcelDna.AddIn" Version="1.8.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Reference Include="System.Windows.Forms" />
+    <Reference Include="Microsoft.CSharp" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\ToleranceTool.Core\ToleranceTool.Core.csproj" />
+    <ProjectReference Include="..\ToleranceTool.Configuration\ToleranceTool.Configuration.csproj" />
+    <ProjectReference Include="..\ToleranceTool.Import\ToleranceTool.Import.csproj" />
+    <ProjectReference Include="..\ToleranceTool.Excel\ToleranceTool.Excel.csproj" />
+    <ProjectReference Include="..\ToleranceTool.UI\ToleranceTool.UI.csproj" />
+  </ItemGroup>
+
+</Project>

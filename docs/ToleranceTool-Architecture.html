@@ -1,0 +1,1146 @@
+<title>Tolerance Tool Architecture</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap">
+
+<style>
+  :root {
+    --bg: #eef1f4;
+    --surface: #ffffff;
+    --surface-2: #f6f8fa;
+    --ink: #1b2430;
+    --ink-soft: #3d4a58;
+    --muted: #5f6f7e;
+    --line: #d5dce3;
+    --line-strong: #b9c4ce;
+    --accent: #1f6f8b;
+    --accent-ink: #14536a;
+    --accent-wash: #e3eef2;
+    --raw: #a75311;
+    --raw-wash: #f6e9df;
+    --good: #2f7d4f;
+    --warn: #9a7212;
+    --crit: #b23a3a;
+    --shadow: 0 1px 2px rgba(19,30,42,.06), 0 8px 24px rgba(19,30,42,.05);
+    --maxw: 66rem;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #10151b;
+      --surface: #182029;
+      --surface-2: #1f2831;
+      --ink: #dde5ee;
+      --ink-soft: #b9c5d1;
+      --muted: #8996a4;
+      --line: #2c3742;
+      --line-strong: #3c4956;
+      --accent: #52a7c4;
+      --accent-ink: #8fccdf;
+      --accent-wash: #16303a;
+      --raw: #d98b52;
+      --raw-wash: #3a2a1d;
+      --good: #6cc08b;
+      --warn: #d3ad55;
+      --crit: #e08585;
+      --shadow: 0 1px 2px rgba(0,0,0,.3), 0 10px 30px rgba(0,0,0,.35);
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #10151b;
+    --surface: #182029;
+    --surface-2: #1f2831;
+    --ink: #dde5ee;
+    --ink-soft: #b9c5d1;
+    --muted: #8996a4;
+    --line: #2c3742;
+    --line-strong: #3c4956;
+    --accent: #52a7c4;
+    --accent-ink: #8fccdf;
+    --accent-wash: #16303a;
+    --raw: #d98b52;
+    --raw-wash: #3a2a1d;
+    --good: #6cc08b;
+    --warn: #d3ad55;
+    --crit: #e08585;
+    --shadow: 0 1px 2px rgba(0,0,0,.3), 0 10px 30px rgba(0,0,0,.35);
+  }
+
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; scroll-padding-top: 2rem; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--ink);
+    font-family: "IBM Plex Sans", system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+    font-size: 16px;
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    html { scroll-behavior: auto; }
+  }
+
+  .wrap {
+    max-width: 82rem;
+    margin: 0 auto;
+    padding: 3.5rem 1.5rem 6rem;
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 2.5rem;
+  }
+  @media (min-width: 60rem) {
+    .wrap {
+      grid-template-columns: 15rem minmax(0, var(--maxw));
+      justify-content: center;
+      gap: 3.5rem;
+      align-items: start;
+    }
+  }
+
+  /* ---- table of contents ---- */
+  nav.toc {
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+    font-size: .78rem;
+    line-height: 1.5;
+  }
+  @media (min-width: 60rem) {
+    nav.toc { position: sticky; top: 2rem; }
+  }
+  nav.toc .kicker {
+    text-transform: uppercase;
+    letter-spacing: .16em;
+    color: var(--muted);
+    font-size: .68rem;
+    margin-bottom: .9rem;
+  }
+  nav.toc ol { list-style: none; margin: 0; padding: 0; counter-reset: toc; }
+  nav.toc li { counter-increment: toc; margin: .2rem 0; }
+  nav.toc a {
+    display: grid;
+    grid-template-columns: 1.6rem 1fr;
+    gap: .4rem;
+    padding: .32rem .4rem;
+    text-decoration: none;
+    color: var(--ink-soft);
+    border-radius: 4px;
+  }
+  nav.toc a::before {
+    content: counter(toc, decimal-leading-zero);
+    color: var(--muted);
+  }
+  nav.toc a:hover { background: var(--accent-wash); color: var(--accent-ink); }
+  nav.toc a:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+
+  /* ---- masthead ---- */
+  header.masthead {
+    border-bottom: 1px solid var(--line-strong);
+    padding-bottom: 1.6rem;
+    margin-bottom: .5rem;
+  }
+  .eyebrow {
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+    text-transform: uppercase;
+    letter-spacing: .18em;
+    font-size: .7rem;
+    color: var(--accent-ink);
+    margin: 0 0 .8rem;
+  }
+  h1 {
+    font-size: clamp(1.9rem, 1.2rem + 2.6vw, 2.9rem);
+    line-height: 1.1;
+    margin: 0 0 .6rem;
+    font-weight: 600;
+    letter-spacing: -.015em;
+    text-wrap: balance;
+  }
+  .standfirst {
+    font-size: 1.08rem;
+    color: var(--ink-soft);
+    max-width: 60ch;
+    margin: 0;
+  }
+  .meta {
+    margin-top: 1.4rem;
+    display: flex;
+    flex-wrap: wrap;
+    gap: .5rem;
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+    font-size: .74rem;
+  }
+  .meta span {
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    padding: .28rem .7rem;
+    color: var(--muted);
+  }
+  .meta span b { color: var(--ink); font-weight: 600; }
+
+  main { min-width: 0; }
+
+  section { margin-top: 3.2rem; scroll-margin-top: 2rem; }
+  section > h2 {
+    font-size: 1.5rem;
+    font-weight: 600;
+    letter-spacing: -.01em;
+    margin: 0 0 1rem;
+    padding-bottom: .5rem;
+    border-bottom: 1px solid var(--line);
+    display: flex;
+    align-items: baseline;
+    gap: .7rem;
+  }
+  section > h2 .num {
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+    font-size: .9rem;
+    color: var(--accent);
+    font-weight: 500;
+  }
+  h3 {
+    font-size: 1.12rem;
+    font-weight: 600;
+    margin: 2rem 0 .6rem;
+    color: var(--ink);
+  }
+  h4 {
+    font-size: .82rem;
+    text-transform: uppercase;
+    letter-spacing: .1em;
+    color: var(--muted);
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+    margin: 1.4rem 0 .5rem;
+  }
+  p { margin: .7rem 0; max-width: 68ch; }
+  ul, ol { max-width: 68ch; padding-left: 1.2rem; }
+  li { margin: .3rem 0; }
+  a { color: var(--accent-ink); }
+  strong { font-weight: 600; }
+  code {
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+    font-size: .86em;
+    background: var(--surface-2);
+    border: 1px solid var(--line);
+    border-radius: 4px;
+    padding: .05rem .32rem;
+  }
+
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 1.3rem 1.4rem;
+    box-shadow: var(--shadow);
+    margin: 1.2rem 0;
+  }
+  .card > :first-child { margin-top: 0; }
+  .card > :last-child { margin-bottom: 0; }
+
+  .note {
+    border-left: 3px solid var(--accent);
+    background: var(--accent-wash);
+    border-radius: 0 8px 8px 0;
+    padding: .8rem 1rem;
+    margin: 1.1rem 0;
+    font-size: .95rem;
+  }
+  .note.decide {
+    border-left-color: var(--warn);
+    background: color-mix(in srgb, var(--warn) 12%, var(--surface));
+  }
+  .note .tag {
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+    font-size: .68rem;
+    text-transform: uppercase;
+    letter-spacing: .14em;
+    color: var(--muted);
+    display: block;
+    margin-bottom: .25rem;
+  }
+
+  /* ---- tables ---- */
+  .scroll-x { overflow-x: auto; margin: 1.1rem 0; border-radius: 8px; border: 1px solid var(--line); }
+  table {
+    border-collapse: collapse;
+    width: 100%;
+    font-size: .9rem;
+    background: var(--surface);
+  }
+  .scroll-x table { border: none; }
+  th, td {
+    text-align: left;
+    padding: .55rem .8rem;
+    border-bottom: 1px solid var(--line);
+    vertical-align: top;
+  }
+  thead th {
+    background: var(--surface-2);
+    font-size: .74rem;
+    text-transform: uppercase;
+    letter-spacing: .08em;
+    color: var(--muted);
+    font-weight: 600;
+    white-space: nowrap;
+  }
+  tbody tr:last-child td { border-bottom: none; }
+  td.k, table.fields td:first-child {
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+    font-size: .82rem;
+    color: var(--accent-ink);
+    white-space: nowrap;
+  }
+  .req { color: var(--crit); font-family: "IBM Plex Mono", monospace; font-size: .8rem; }
+  .opt { color: var(--muted); font-family: "IBM Plex Mono", monospace; font-size: .8rem; }
+
+  /* ---- code blocks ---- */
+  pre {
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+    font-size: .82rem;
+    line-height: 1.55;
+    background: var(--surface-2);
+    border: 1px solid var(--line);
+    border-left: 3px solid var(--accent);
+    border-radius: 0 8px 8px 0;
+    padding: 1rem 1.1rem;
+    overflow-x: auto;
+    margin: 1.1rem 0;
+    tab-size: 2;
+  }
+  pre code { background: none; border: none; padding: 0; font-size: inherit; }
+  pre.raw { border-left-color: var(--raw); }
+
+  /* ---- calc steps ---- */
+  ol.steps { counter-reset: step; list-style: none; padding: 0; max-width: none; }
+  ol.steps > li {
+    counter-increment: step;
+    display: grid;
+    grid-template-columns: 2.2rem 1fr;
+    gap: .9rem;
+    padding: .9rem 0;
+    border-bottom: 1px dashed var(--line);
+  }
+  ol.steps > li:last-child { border-bottom: none; }
+  ol.steps > li::before {
+    content: counter(step);
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+    font-weight: 600;
+    color: var(--accent);
+    background: var(--accent-wash);
+    border-radius: 6px;
+    height: 2.2rem;
+    display: grid;
+    place-items: center;
+    font-size: .9rem;
+  }
+  ol.steps .formula {
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+    font-size: .82rem;
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    padding: .4rem .6rem;
+    margin-top: .4rem;
+    display: inline-block;
+    font-variant-numeric: tabular-nums;
+    overflow-x: auto;
+    max-width: 100%;
+  }
+  ol.steps p { margin: 0; }
+
+  .pills { display: flex; flex-wrap: wrap; gap: .4rem; margin: .8rem 0; }
+  .pill {
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+    font-size: .74rem;
+    border: 1px solid var(--line-strong);
+    border-radius: 999px;
+    padding: .22rem .7rem;
+    color: var(--ink-soft);
+    background: var(--surface);
+  }
+  .pill.raw { border-color: var(--raw); color: var(--raw); background: var(--raw-wash); }
+  .pill.eu { border-color: var(--accent); color: var(--accent-ink); background: var(--accent-wash); }
+
+  .grid2 { display: grid; gap: 1.2rem; }
+  @media (min-width: 44rem) { .grid2 { grid-template-columns: 1fr 1fr; } }
+
+  figure { margin: 1.4rem 0; }
+  figure svg { width: 100%; height: auto; display: block; }
+  figcaption {
+    font-size: .8rem;
+    color: var(--muted);
+    margin-top: .5rem;
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+  }
+
+  .phase {
+    display: grid;
+    grid-template-columns: 3.4rem 1fr;
+    gap: 1rem;
+    padding: 1rem 0;
+    border-bottom: 1px solid var(--line);
+  }
+  .phase:last-child { border-bottom: none; }
+  .phase .pid {
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+    font-weight: 600;
+    color: var(--accent);
+    font-size: .95rem;
+  }
+  .phase h3 { margin: 0 0 .3rem; font-size: 1rem; }
+  .phase p { margin: 0; font-size: .92rem; color: var(--ink-soft); }
+  .phase .dep { font-family: "IBM Plex Mono", monospace; font-size: .72rem; color: var(--muted); }
+
+  hr.rule { border: none; border-top: 1px solid var(--line); margin: 2.5rem 0; }
+
+  footer {
+    margin-top: 4rem;
+    padding-top: 1.4rem;
+    border-top: 1px solid var(--line-strong);
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+    font-size: .76rem;
+    color: var(--muted);
+  }
+</style>
+
+<div class="wrap">
+  <nav class="toc" aria-label="Contents">
+    <div class="kicker">Contents</div>
+    <ol>
+      <li><a href="#overview">Overview &amp; goals</a></li>
+      <li><a href="#stack">Technology decisions</a></li>
+      <li><a href="#solution">Solution structure</a></li>
+      <li><a href="#model">Domain model</a></li>
+      <li><a href="#config">Configuration artifacts</a></li>
+      <li><a href="#datasheet">Datasheet mapping</a></li>
+      <li><a href="#signal-import">Signal configuration import</a></li>
+      <li><a href="#tolerance-config">Tolerance configuration</a></li>
+      <li><a href="#calc">The tolerance calculation</a></li>
+      <li><a href="#apply">Applying &amp; checking</a></li>
+      <li><a href="#ribbon">Ribbon &amp; UI surface</a></li>
+      <li><a href="#phases">Build phases</a></li>
+      <li><a href="#questions">Decisions needed</a></li>
+    </ol>
+  </nav>
+
+  <main>
+    <header class="masthead">
+      <p class="eyebrow">Architecture &amp; Design Plan</p>
+      <h1>Tolerance Tool for Excel Test Datasheets</h1>
+      <p class="standfirst">An Excel add-in that standardizes how engineers compute measurement tolerances on
+        test-case datasheets &mdash; converting expected values through instrument scaling curves, applying a
+        configured tolerance band, and writing the result back to the sheet.</p>
+      <div class="meta">
+        <span><b>Framework</b> Excel-DNA</span>
+        <span><b>Runtime</b> .NET Framework 4.8</span>
+        <span><b>Target</b> Excel 2016+ / M365, 64-bit</span>
+        <span><b>Status</b> Design &mdash; pre-implementation</span>
+        <span><b>Date</b> 2026-08-28</span>
+      </div>
+    </header>
+
+    <section id="overview">
+      <h2><span class="num">01</span> Overview &amp; goals</h2>
+      <p>Engineers lay out test cases in Excel. Every test case names a signal and records an
+        <strong>Expected</strong> value, a <strong>Tolerance</strong>, an <strong>Actual</strong> reading,
+        and a <strong>Pass/Fail</strong> result. Today the tolerance in each row is calculated by hand or by
+        ad-hoc formulas that differ between engineers and projects. This tool makes that one operation
+        consistent and auditable.</p>
+
+      <h4>What the tool does</h4>
+      <ul>
+        <li><strong>Maps</strong> a datasheet's own column names onto the five required parameters, so layouts can vary.</li>
+        <li><strong>Resolves</strong> each row's System ID to a configured signal &mdash; by direct name match, or through one or more alias tables.</li>
+        <li><strong>Imports</strong> per-signal configuration (scaling curve, signal type, module type, EU ranges) from spreadsheets or an Access database, joining several sources on a Universal ID.</li>
+        <li><strong>Stores</strong> tolerance definitions in an editable XML library, keyed by signal type + module type.</li>
+        <li><strong>Calculates</strong> the tolerance for each expected value &mdash; round-tripping through the signal's scaling curve when the tolerance is specified in raw units, or working directly in EU when it is already in engineering units.</li>
+        <li><strong>Writes or checks</strong> the Tolerance column across the datasheet, leaving cell comments where a value already present disagrees.</li>
+      </ul>
+
+      <h4>Design principles</h4>
+      <ul>
+        <li><strong>The math is a library, not an add-in feature.</strong> The calculation engine has no dependency on Excel and is fully unit-tested on its own.</li>
+        <li><strong>Formulas live in configuration.</strong> Scaling curves and tolerance bands are expressions in config files, evaluated at runtime &mdash; not compiled code. Engineers can add a scale type without a rebuild.</li>
+        <li><strong>Config travels with the workbook where it is workbook-specific</strong> (datasheet mapping, import source definitions); shared libraries (scale types, tolerances) are external files with a per-workbook override path.</li>
+        <li><strong>Every applied value is reproducible</strong> from the stored configuration.</li>
+      </ul>
+    </section>
+
+    <section id="stack">
+      <h2><span class="num">02</span> Technology decisions</h2>
+
+      <div class="scroll-x">
+        <table>
+          <thead><tr><th>Decision</th><th>Choice</th><th>Why</th></tr></thead>
+          <tbody>
+            <tr>
+              <td class="k">Add-in framework</td>
+              <td>Excel-DNA</td>
+              <td>Single <code>.xll</code>, xcopy / network-share deployment, no ClickOnce or per-user MSI registration. Ribbon and custom task panes are fully supported. Ideal for an internal engineering tool distributed to a known set of machines.</td>
+            </tr>
+            <tr>
+              <td class="k">Language / runtime</td>
+              <td>C# on .NET Framework 4.8</td>
+              <td>Ships in-box on Windows 10 1903+ and Windows 11 &mdash; no runtime install on target machines. Broadest compatibility with locked-down corporate environments.</td>
+            </tr>
+            <tr>
+              <td class="k">Bitness</td>
+              <td>64-bit</td>
+              <td>Matches modern Excel installs. The <code>.dna</code> pack produces a 64-bit <code>.xll</code>; a 32-bit variant can be added later from the same code if needed.</td>
+            </tr>
+            <tr>
+              <td class="k">Expression evaluation</td>
+              <td>NCalc</td>
+              <td>Small, dependency-light, evaluates arithmetic expressions with named variables and a math function set (<code>Sqrt</code>, <code>Pow</code>, <code>Log</code>, <code>Abs</code>, <code>Max</code>&hellip;). Used for both scale-type curves and tolerance-band formulas.</td>
+            </tr>
+            <tr>
+              <td class="k">Closed-file reading</td>
+              <td>ExcelDataReader + CsvHelper</td>
+              <td>Reads <code>.xlsx</code> / <code>.csv</code> import sources without launching a second Excel instance or requiring the files to be open.</td>
+            </tr>
+            <tr>
+              <td class="k">Access source</td>
+              <td>OleDb (ACE provider)</td>
+              <td>Standard path to <code>.accdb</code> / <code>.mdb</code>. Infrastructure only in the first releases (see <a href="#phases">phases</a>).</td>
+            </tr>
+            <tr>
+              <td class="k">UI toolkit</td>
+              <td>WinForms</td>
+              <td>Most reliable pairing with Excel-DNA custom task panes and modal dialogs; lightest tooling. Grid-heavy screens use <code>DataGridView</code>.</td>
+            </tr>
+            <tr>
+              <td class="k">Tests</td>
+              <td>xUnit</td>
+              <td>Covers <code>Core</code> (calculation, scale evaluation, tolerance selection) and <code>Configuration</code> (load / validate / round-trip).</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="note decide">
+        <span class="tag">Revisit later</span>
+        If the tool ever needs to target machines without .NET Framework, or wants a modern packaging story,
+        the same <code>Core</code> / <code>Configuration</code> assemblies move to .NET 8 unchanged; only the
+        add-in host project changes.
+      </div>
+    </section>
+
+    <section id="solution">
+      <h2><span class="num">03</span> Solution structure</h2>
+      <p>Six projects. The dependency arrows only ever point toward <code>Core</code>; nothing below the
+        add-in host references the Excel object model.</p>
+
+      <div class="scroll-x">
+        <table>
+          <thead><tr><th>Project</th><th>Kind</th><th>Responsibility</th><th>References</th></tr></thead>
+          <tbody>
+            <tr><td class="k">ToleranceTool.Core</td><td>class lib</td>
+              <td>Domain model, the tolerance calculation engine, scale-curve evaluation, tolerance selection. Pure &mdash; no Excel, no file I/O.</td>
+              <td>NCalc</td></tr>
+            <tr><td class="k">ToleranceTool.Configuration</td><td>class lib</td>
+              <td>Load / save / validate every config artifact: datasheet mapping, import definitions, signal-type registry, scale-type library, tolerance XML, resolved signal set.</td>
+              <td>Core</td></tr>
+            <tr><td class="k">ToleranceTool.Import</td><td>class lib</td>
+              <td><code>ISignalSource</code> abstraction and its implementations: file-based (xlsx/csv) and Access. Performs the multi-source join and completeness validation, emits the resolved signal set.</td>
+              <td>Core, Configuration, ExcelDataReader, CsvHelper</td></tr>
+            <tr><td class="k">ToleranceTool.Excel</td><td>class lib</td>
+              <td>The datasheet reader/writer: resolves mapped columns, iterates test cases, writes the Tolerance column, manages cell comments. Wraps the Excel object model so <code>Core</code> stays clean.</td>
+              <td>Core, Configuration, Excel interop</td></tr>
+            <tr><td class="k">ToleranceTool.UI</td><td>class lib</td>
+              <td>WinForms task panes and dialogs: Datasheet Mapping, Signal Import wizard, Signal Preview grid, Tolerance Editor, Scale Type Editor, Signal Type registry.</td>
+              <td>Core, Configuration, Import, Excel</td></tr>
+            <tr><td class="k">ToleranceTool.AddIn</td><td>Excel-DNA</td>
+              <td>The host: <code>IExcelAddIn</code>, ribbon XML + callbacks, task-pane registration, the <code>.dna</code> file. Packs to <code>ToleranceTool-AddIn64.xll</code>.</td>
+              <td>all of the above, ExcelDna.Integration</td></tr>
+            <tr><td class="k">ToleranceTool.Tests</td><td>xUnit</td>
+              <td>Engine, scale, tolerance-selection, config round-trip, and join/validation tests with sample fixtures.</td>
+              <td>Core, Configuration, Import</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section id="model">
+      <h2><span class="num">04</span> Domain model</h2>
+
+      <h3>SignalConfig</h3>
+      <p>One per signal under test. Assembled by the import layer; consumed by the calculation engine.</p>
+      <div class="scroll-x">
+        <table class="fields">
+          <thead><tr><th>Field</th><th>Source</th><th>Meaning / use</th></tr></thead>
+          <tbody>
+            <tr><td>UniversalId</td><td>import (join key)</td><td>Links records across import sources. May or may not equal the datasheet's System ID.</td></tr>
+            <tr><td>SensorName</td><td>import (master source)</td><td>The name matched against the datasheet's <em>System ID</em> (directly or via an alias table) to find a row's signal.</td></tr>
+            <tr><td>ConversionSense</td><td>import</td><td><code>Direct</code> (EuLow&harr;RawLow) or <code>Reverse</code> (EuLow&harr;RawHigh). <strong>Reverse is only valid with <code>ScaleType = Linear</code></strong> &mdash; import validation rejects any other combination.</td></tr>
+            <tr><td>ScaleType</td><td>import</td><td>Name of a curve in the scale-type library: <code>Linear</code>, <code>SquareRoot</code>, <code>Logarithmic</code>&hellip;</td></tr>
+            <tr><td>SignalType</td><td>import</td><td>e.g. <code>4-20mA</code>, <code>0-10V</code>. Selects raw range and (with module) the tolerance.</td></tr>
+            <tr><td>ModuleType</td><td>import</td><td>The I/O card in use. Second key into the tolerance library.</td></tr>
+            <tr><td>RawLow / RawHigh</td><td>signal-type registry</td><td>Raw range endpoints, filled from the SignalType (4&hellip;20, 0&hellip;10&hellip;).</td></tr>
+            <tr><td>EuLow / EuHigh</td><td>import / config</td><td>Engineering-unit range in display units. Used by the calculation.</td></tr>
+            <tr><td>EuLowSi / EuHighSi</td><td>import / config</td><td>Same range in SI units. Used when the datasheet's expected value is in SI.</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3>Other entities</h3>
+      <div class="scroll-x">
+        <table class="fields">
+          <thead><tr><th>Type</th><th>Holds</th></tr></thead>
+          <tbody>
+            <tr><td>DatasheetMapping</td><td>Required-parameter &rarr; worksheet-column-header map, orientation, header location, data range, unit-system default (+ optional per-row unit column), tolerance-precision policy.</td></tr>
+            <tr><td>ScaleType</td><td>Name + forward expression (euFrac &rarr; rawFrac) + inverse expression (rawFrac &rarr; euFrac).</td></tr>
+            <tr><td>ToleranceDefinition</td><td>SignalType + ModuleType key; one or more typed band terms (<code>Percent</code>, <code>AbsoluteEu</code>, <code>AbsoluteRaw</code>, <code>Expression</code>), each carrying its own space/unit.</td></tr>
+            <tr><td>AliasTable</td><td>Ordered list of System&nbsp;ID &rarr; SensorName (or UniversalId) entries, each with a match mode (<code>exact</code> / <code>contains</code> / <code>regex</code>); several tables, checked by priority.</td></tr>
+            <tr><td>SignalTypeSpec</td><td>Name &rarr; RawLow, RawHigh, raw unit label.</td></tr>
+            <tr><td>ImportSourceDef</td><td>Source kind, location, orientation, key column/row, field&rarr;column map, per-field required flag, isMaster.</td></tr>
+            <tr><td>ResolvedSignalSet</td><td>The joined, validated collection of SignalConfig + per-row completeness state.</td></tr>
+            <tr><td>ToleranceResult</td><td>Expected, calculated tolerance, the resolution path, raw/EU intermediates, and any warning (extrapolated, curve-undefined, no signal match, no tolerance match).</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section id="config">
+      <h2><span class="num">05</span> Configuration artifacts</h2>
+      <p>Some stores live inside the workbook (as <code>CustomXmlParts</code>, so they travel with the file);
+        the shared libraries live <strong>per-user</strong> under <code>%APPDATA%\ToleranceTool\</code>, each with an
+        optional per-workbook override path; one store is a derived cache.</p>
+
+      <div class="scroll-x">
+        <table>
+          <thead><tr><th>Artifact</th><th>Format</th><th>Location</th><th>Edited via</th></tr></thead>
+          <tbody>
+            <tr><td class="k">Datasheet mapping</td><td>XML/JSON</td><td>in workbook (per sheet)</td><td>Datasheet Mapping pane</td></tr>
+            <tr><td class="k">Import source definitions</td><td>XML/JSON</td><td>in workbook</td><td>Signal Import wizard</td></tr>
+            <tr><td class="k">Alias tables</td><td>XML</td><td><code>%APPDATA%</code> <em>and/or</em> in workbook</td><td>Alias Table editor</td></tr>
+            <tr><td class="k">Per-sheet resolution overrides</td><td>XML/JSON</td><td>in workbook (per sheet)</td><td>Resolution review grid</td></tr>
+            <tr><td class="k">Signal-type registry</td><td>XML</td><td><code>%APPDATA%\ToleranceTool\</code></td><td>Signal Type editor</td></tr>
+            <tr><td class="k">Scale-type library</td><td>XML</td><td><code>%APPDATA%\ToleranceTool\</code></td><td>Scale Type editor</td></tr>
+            <tr><td class="k">Tolerance library</td><td>XML</td><td><code>%APPDATA%\ToleranceTool\</code></td><td>Tolerance Editor</td></tr>
+            <tr><td class="k">Resolved signal set</td><td>JSON</td><td>workbook sidecar or hidden sheet</td><td>(derived &mdash; rebuilt on import)</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3>Alias tables</h3>
+      <p>The datasheet's System ID usually <em>contains</em> the sensor name rather than equalling it, and different
+        projects abbreviate differently &mdash; so resolution runs a ladder, and alias tables fill the gaps.
+        Multiple tables are allowed; they are consulted in <code>priority</code> order (in-workbook tables before
+        shared ones by default), first hit wins.</p>
+      <pre><code>&lt;AliasTables&gt;
+  &lt;AliasTable name="Project X" priority="10"&gt;
+    &lt;Alias systemId="FT-201-A"        sensorName="FT-201" match="exact" /&gt;
+    &lt;Alias systemId="^(FT-\d+).*$"    sensorName="$1"      match="regex" /&gt;
+    &lt;Alias systemId="Loop 4 Pressure" universalId="UT-1002" match="exact" /&gt;
+  &lt;/AliasTable&gt;
+&lt;/AliasTables&gt;</code></pre>
+      <div class="note">
+        <span class="tag">Resolution ladder</span>
+        <strong>1.</strong> exact match of System ID to a <code>SensorName</code> (case-insensitive, trimmed) &nbsp;&rarr;&nbsp;
+        <strong>2.</strong> alias tables, by priority &nbsp;&rarr;&nbsp;
+        <strong>3.</strong> auto-match: exactly one <code>SensorName</code> occurs as a whole-token substring of the System ID.
+        Two or more candidates at step 3 is <em>ambiguous</em> and flagged, never guessed.
+        <code>ToleranceResult</code> records which step matched.
+      </div>
+      <div class="note">
+        <span class="tag">Per-worksheet review</span>
+        Before any Apply/Check, the Datasheet Mapping pane shows a <strong>resolution review grid</strong> for
+        the active sheet &mdash; every row's System ID, how it resolved (exact / alias / auto-match / unresolved
+        / ambiguous), and the signal it landed on. The user confirms or corrects each; corrections are stored
+        as a <strong>per-sheet override map in the workbook</strong>, which sits above the whole ladder.
+      </div>
+
+      <h3>Scale-type library</h3>
+      <p>Each entry gives the two directions of the curve, as expressions over a single normalized variable
+        <code>x</code> in <code>[0,1]</code>. <code>Forward</code> maps the EU fraction to the raw fraction;
+        <code>Inverse</code> is its reciprocal function.</p>
+      <pre><code>&lt;ScaleTypes&gt;
+  &lt;ScaleType name="Linear"&gt;
+    &lt;Forward&gt;x&lt;/Forward&gt;
+    &lt;Inverse&gt;x&lt;/Inverse&gt;
+  &lt;/ScaleType&gt;
+
+  &lt;!-- e.g. DP-flow: measured flow (EU) vs. differential pressure (raw) --&gt;
+  &lt;ScaleType name="SquareRoot"&gt;
+    &lt;Forward&gt;Pow(x, 2)&lt;/Forward&gt;
+    &lt;Inverse&gt;Sqrt(x)&lt;/Inverse&gt;
+  &lt;/ScaleType&gt;
+
+  &lt;ScaleType name="Logarithmic"&gt;
+    &lt;Param name="decades" value="2" /&gt;
+    &lt;Forward&gt;(Pow(10, x * decades) - 1) / (Pow(10, decades) - 1)&lt;/Forward&gt;
+    &lt;Inverse&gt;Log10(x * (Pow(10, decades) - 1) + 1) / decades&lt;/Inverse&gt;
+  &lt;/ScaleType&gt;
+&lt;/ScaleTypes&gt;</code></pre>
+      <div class="note">
+        <span class="tag">Contract</span>
+        Every curve must satisfy <code>Forward(0)=0</code>, <code>Forward(1)=1</code>, and be monotonic on
+        <code>[0,1]</code>. The config loader validates this numerically and refuses a curve that fails.
+      </div>
+
+      <h3>Tolerance library</h3>
+      <p>Keyed by <code>signalType</code> + <code>moduleType</code>. A band is the sum of one or more <strong>typed
+        terms</strong>. Each term declares its own space, so one library holds both raw-unit accuracy specs and
+        ready-made EU tolerances.</p>
+      <div class="scroll-x">
+        <table class="fields">
+          <thead><tr><th>Term</th><th>Attributes</th><th>Meaning</th></tr></thead>
+          <tbody>
+            <tr><td>Percent</td><td><code>value</code> (fraction), <code>basis</code> = <code>rawSpan</code>&nbsp;<em>(default)</em> | <code>euSpan</code> | <code>reading</code></td>
+              <td><code>&plusmn;0.3%</code> &rarr; <code>value="0.003"</code>. Default is <strong>% of raw span</strong> &mdash; for 4-20&nbsp;mA that is 0.3%&nbsp;&times;&nbsp;16&nbsp;=&nbsp;0.048&nbsp;mA, applied in raw space. <code>euSpan</code> uses the row's EU span (English or SI) and stays on the EU fast path.</td></tr>
+            <tr><td>AbsoluteEu</td><td><code>value</code>, <code>unit</code>, <code>unitSystem</code> = <code>English</code> | <code>SI</code></td>
+              <td><code>&plusmn;0.45&nbsp;degF</code>, <code>&plusmn;0.5&nbsp;rpm</code>. Already in EU &mdash; no raw round-trip. Scaled by the EU-span ratio if the row's unit system differs.</td></tr>
+            <tr><td>AbsoluteRaw</td><td><code>value</code>, <code>unit</code></td>
+              <td>A fixed raw offset (counts, mA). Forces the raw round-trip.</td></tr>
+            <tr><td>Expression</td><td><code>space</code>, NCalc body</td>
+              <td>Escape hatch. Variables: <code>rawExpected, rawLow, rawHigh, rawSpan, expected, euLow, euHigh, euSpan</code>.</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <pre><code>&lt;Tolerances&gt;
+  &lt;!-- current loop: 0.3% of raw span (default basis) --&gt;
+  &lt;Tolerance signalType="4-20mA" moduleType="AI-871"&gt;
+    &lt;Percent value="0.003" /&gt;
+  &lt;/Tolerance&gt;
+
+  &lt;!-- RTD temperature: fixed 0.45 degF, already EU --&gt;
+  &lt;Tolerance signalType="RTD-PT100" moduleType="AI-664"&gt;
+    &lt;AbsoluteEu value="0.45" unit="degF" unitSystem="English" /&gt;
+  &lt;/Tolerance&gt;
+
+  &lt;!-- speed pickup: fixed 0.5 rpm, already EU --&gt;
+  &lt;Tolerance signalType="Tach-Pulse" moduleType="CI-220"&gt;
+    &lt;AbsoluteEu value="0.5" unit="rpm" unitSystem="English" /&gt;
+  &lt;/Tolerance&gt;
+
+  &lt;!-- composite: 0.1% of raw span + a fixed raw offset --&gt;
+  &lt;Tolerance signalType="0-10V" moduleType="AI-664"&gt;
+    &lt;Percent value="0.001" basis="rawSpan" /&gt;
+    &lt;AbsoluteRaw value="0.002" unit="V" /&gt;
+  &lt;/Tolerance&gt;
+&lt;/Tolerances&gt;</code></pre>
+      <div class="note">
+        <span class="tag">Fast path</span>
+        When every term of a definition is EU-space (<code>AbsoluteEu</code>, or <code>Percent basis="euSpan"</code>),
+        the engine skips the scale round-trip entirely: <code>tolerance = &Sigma;terms</code>, applied
+        symmetrically about <code>expected</code>. The round-trip runs only when a raw-space term is present
+        (<code>Percent basis="rawSpan"</code> &mdash; the default &mdash; or <code>AbsoluteRaw</code>).
+      </div>
+
+      <h3>Signal-type registry</h3>
+      <pre><code>&lt;SignalTypes&gt;
+  &lt;SignalType name="4-20mA" rawLow="4"  rawHigh="20" unit="mA" /&gt;
+  &lt;SignalType name="0-10V"  rawLow="0"  rawHigh="10" unit="V"  /&gt;
+  &lt;SignalType name="1-5V"   rawLow="1"  rawHigh="5"  unit="V"  /&gt;
+&lt;/SignalTypes&gt;</code></pre>
+    </section>
+
+    <section id="datasheet">
+      <h2><span class="num">06</span> Datasheet mapping</h2>
+      <p>The five required parameters are fixed; the column headers that carry them are not. The mapping pane
+        lets the user bind each one to a header in their sheet, exactly as sketched in the brief:</p>
+
+      <div class="scroll-x">
+        <table>
+          <thead><tr><th>Required parameter</th><th>Worksheet equivalent (example)</th><th>Role</th></tr></thead>
+          <tbody>
+            <tr><td class="k">System ID</td><td>Signal Name</td><td>Identifies the signal &mdash; matched to <code>SensorName</code>.</td></tr>
+            <tr><td class="k">Expected</td><td>Expect'd</td><td>Input to the calculation (engineering units).</td></tr>
+            <tr><td class="k">Tolerance</td><td>Tol</td><td>Output &mdash; written on Apply, compared on Check.</td></tr>
+            <tr><td class="k">Actual</td><td>Act</td><td>Read only; used for optional Pass/Fail.</td></tr>
+            <tr><td class="k">Pass/Fail</td><td>Pass/Fail</td><td>Optional output.</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h4>Mapping also captures</h4>
+      <ul>
+        <li><strong>Orientation</strong> &mdash; <strong>row-oriented at launch</strong> (one test case per row,
+          headers in a header row). Column-oriented sheets are a later phase; the field is stored now so the
+          format does not change.</li>
+        <li><strong>Header row</strong> &mdash; which row holds the headers; picked by click or by cell reference.</li>
+        <li><strong>Data extent</strong> &mdash; first and last test-case row, or "to end of contiguous data".</li>
+      </ul>
+      <p>The tool always operates on the <strong>active worksheet</strong> &mdash; the datasheet currently in
+        focus. Mapping, resolution overrides, and precision policy are all stored <strong>per sheet</strong>, so
+        a workbook can hold several datasheets and each keeps its own setup. Column resolution is by
+        <strong>case-insensitive trimmed header match</strong>, with the mapped string stored so a moved column
+        is re-found automatically. A missing or ambiguous header is reported before any calculation runs.</p>
+
+      <h3>Unit system</h3>
+      <p>The mapping carries a <strong>default unit system</strong> for the sheet &mdash; <code>English</code> or
+        <code>SI</code> &mdash; because it is usually uniform across a datasheet. A per-row units column may also
+        exist on some sheets but is <strong>not relied upon</strong>: if the user maps one and a row has a
+        non-blank value, it overrides the sheet default for that row; otherwise the sheet default stands. Either
+        way every signal is assumed to carry <strong>both</strong> its English (<code>EuLow/EuHigh</code>) and SI
+        (<code>EuLowSi/EuHighSi</code>) ranges from import. An SI row is evaluated against the SI range and its
+        result is in SI units; <code>AbsoluteEu</code> tolerance terms defined in the other system are converted
+        by the ratio of the two configured EU spans.</p>
+
+      <h3>System ID &rarr; signal</h3>
+      <p>Each row's mapped System ID is resolved through the <a href="#config">resolution ladder</a> (exact name
+        match &rarr; alias tables &rarr; auto-match). The tool <strong>attempts the auto-match</strong>, then the
+        Datasheet Mapping pane presents a <strong>per-worksheet resolution review grid</strong> so the user
+        confirms or corrects each row before Apply/Check; corrections persist as per-sheet overrides. Unresolved
+        and ambiguous rows are listed and never guessed.</p>
+
+      <h3>Tolerance precision</h3>
+      <p>The mapping stores how the written value is rounded:</p>
+      <ul>
+        <li><strong>Match the Expected cell</strong> &mdash; count the significant digits shown in that row's
+          Expected cell (from its displayed text, honouring its number format) and round the tolerance to the
+          same count. This is the requested default-capable option.</li>
+        <li><strong>Fixed</strong> &mdash; N significant figures, or N decimal places, applied to every row.</li>
+        <li><strong>Rounding mode</strong> &mdash; half-up or half-to-even.</li>
+      </ul>
+    </section>
+
+    <section id="signal-import">
+      <h2><span class="num">07</span> Signal configuration import</h2>
+      <p>Two source kinds behind one interface. Both end at the same preview grid.</p>
+      <pre><code>interface ISignalSource {
+    string Name { get; }
+    bool IsMaster { get; }
+    IReadOnlyList&lt;SignalFieldRecord&gt; Read();   // keyed by UniversalId
+}</code></pre>
+
+      <h3>Method A &mdash; CSV / XLSX files</h3>
+      <ul>
+        <li>The user selects <strong>one or more</strong> files. Each becomes a source.</li>
+        <li>Exactly one source is the <strong>master</strong>: the one that connects <code>SensorName</code> to
+          <code>UniversalId</code>. The master's row count sets how many signals exist.</li>
+        <li>Every source declares where its <strong>Universal ID</strong> is (column letter for row-oriented data,
+          row number for column-oriented) and must be non-blank there.</li>
+        <li>Every other mapped field declares its column (or, for a key/value sheet, the column holding the value
+          on the Universal ID's row) and an optional <strong>required</strong> flag.</li>
+        <li>Sources are joined on <code>UniversalId</code>; a left join from the master.</li>
+      </ul>
+      <pre class="raw"><code># Example mapping (from the brief)
+
+Workbook 1  (master)              Workbook 2
+  UniversalId    = col A  [req]     UniversalId  = col W  [req]
+  SensorName     = col B  [req]     EU_Low       = col X  [req]
+  ConversionSense= col D  [req]     EU_High      = col X  [req]
+  ScaleType      = col G  [req]     EU_Low_SI    = col Y  [req]
+  SignalType     = col K  [req]     EU_High_SI   = col X  [req]
+  ModuleType     = col W  [req]</code></pre>
+
+      <h3>Method B &mdash; Access database</h3>
+      <p>Infrastructure now, full build later. An <code>AccessSignalSource : ISignalSource</code> takes a
+        connection string and a per-field query (or one query with column aliases). The wizard collects the
+        <code>.accdb</code> path, lists tables/queries, and stores the SQL in the import definition. Reading and
+        the join reuse the same downstream pipeline as Method A.</p>
+
+      <h3>The preview grid</h3>
+      <p>Both methods drive a live grid showing mapping progress &mdash; a row per signal, a column per field,
+        plus a <strong>Complete</strong> flag that is true when every <em>required</em> field resolved to a
+        non-blank value:</p>
+      <div class="scroll-x">
+        <table>
+          <thead><tr>
+            <th>Universal ID</th><th>Sensor Name</th><th>Conv.</th><th>Scale</th><th>Signal</th><th>Module</th>
+            <th>Raw Lo</th><th>Raw Hi</th><th>EU Lo</th><th>EU Hi</th><th>EU Lo SI</th><th>EU Hi SI</th><th>Complete</th>
+          </tr></thead>
+          <tbody>
+            <tr><td class="k">UT-1001</td><td>FT-201 Flow</td><td>Direct</td><td>SquareRoot</td><td>4-20mA</td><td>AI-871</td>
+              <td>4</td><td>20</td><td>0</td><td>250</td><td>0</td><td>0.0158</td><td style="color:var(--good)">&#10003;</td></tr>
+            <tr><td class="k">UT-1002</td><td>PT-330 Press</td><td>Direct</td><td>Linear</td><td>4-20mA</td><td>AI-871</td>
+              <td>4</td><td>20</td><td>0</td><td>100</td><td>0</td><td>689.5</td><td style="color:var(--good)">&#10003;</td></tr>
+            <tr><td class="k">UT-1003</td><td>TT-115 Temp</td><td>Reverse</td><td>Linear</td><td>0-10V</td><td>AI-664</td>
+              <td>0</td><td>10</td><td>&mdash;</td><td>&mdash;</td><td>&mdash;</td><td>&mdash;</td><td style="color:var(--crit)">&#10007;</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p>Incomplete rows are listed with the exact field and source that failed. The resolved set is only
+        usable by the calculation once every row it needs is complete.</p>
+    </section>
+
+    <section id="tolerance-config">
+      <h2><span class="num">08</span> Tolerance configuration</h2>
+      <p>The Tolerance Editor is a grid over the tolerance XML: <strong>add</strong>, <strong>delete</strong>,
+        <strong>modify</strong>. Each definition is one <code>(signalType, moduleType)</code> row with its
+        band terms shown and editable inline. The editor:</p>
+      <ul>
+        <li>adds terms by type (<code>Percent</code> / <code>AbsoluteEu</code> / <code>AbsoluteRaw</code> /
+          <code>Expression</code>); validates <code>Expression</code> bodies (parse, known variables only) on edit;</li>
+        <li>shows a live preview: pick a sample signal and expected value, see each term resolved and the
+          resulting &plusmn; band &mdash; and whether the fast EU path or the raw round-trip applies;</li>
+        <li>flags <code>(signalType, moduleType)</code> combinations present in the resolved signal set that have
+          <strong>no</strong> tolerance defined &mdash; this is the gate for "Tolerance Configuration is ready";</li>
+        <li>loads from / saves to the shared library path, or a workbook-specific override.</li>
+      </ul>
+      <p>The tolerance for a given datasheet row is selected by the signal's <code>SignalType</code> +
+        <code>ModuleType</code>. No match &rarr; that row is reported and skipped (never silently zero).</p>
+    </section>
+
+    <section id="calc">
+      <h2><span class="num">09</span> The tolerance calculation</h2>
+      <p>The expected value is in engineering units. How the band is applied depends on where the tolerance
+        terms live:</p>
+      <ul>
+        <li><strong>Path A &mdash; all terms in EU.</strong> No conversion. <code>tolerance = &Sigma;terms</code>
+          about <code>expected</code> (a <code>Percent basis="euSpan"</code> resolves against the row's EU span).
+          Covers <code>&plusmn;0.45&nbsp;degF</code>, <code>&plusmn;0.5&nbsp;rpm</code>, <code>&plusmn;0.3%</code>-of-EU-span.</li>
+        <li><strong>Path B &mdash; any term in raw units</strong> (including the default <code>Percent
+          basis="rawSpan"</code>). The round-trip below. Because a non-linear curve makes a symmetric raw band
+          <em>asymmetric</em> in EU, the written value is the larger of the two EU-side deviations.</li>
+      </ul>
+
+      <figure>
+        <svg viewBox="0 0 720 210" role="img" aria-label="Calculation pipeline: expected EU converts to raw, the tolerance band is applied in raw units, both edges convert back to EU, and the larger deviation is the result.">
+          <defs>
+            <marker id="ar" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+              <path d="M0 0 L10 5 L0 10 z" fill="var(--muted)"/>
+            </marker>
+          </defs>
+          <g font-family="'IBM Plex Mono', monospace" font-size="12">
+            <rect x="8" y="78" width="120" height="52" rx="7" fill="var(--accent-wash)" stroke="var(--accent)"/>
+            <text x="68" y="100" text-anchor="middle" fill="var(--accent-ink)">expected</text>
+            <text x="68" y="118" text-anchor="middle" fill="var(--accent-ink)">(EU)</text>
+
+            <line x1="130" y1="104" x2="180" y2="104" stroke="var(--muted)" marker-end="url(#ar)"/>
+            <text x="155" y="96" text-anchor="middle" fill="var(--muted)" font-size="10">Forward</text>
+
+            <rect x="182" y="78" width="120" height="52" rx="7" fill="var(--raw-wash)" stroke="var(--raw)"/>
+            <text x="242" y="100" text-anchor="middle" fill="var(--raw)">rawExpected</text>
+            <text x="242" y="118" text-anchor="middle" fill="var(--raw)">(raw)</text>
+
+            <line x1="304" y1="104" x2="352" y2="104" stroke="var(--muted)" marker-end="url(#ar)"/>
+            <text x="328" y="96" text-anchor="middle" fill="var(--muted)" font-size="10">&plusmn; band</text>
+
+            <rect x="354" y="34" width="128" height="46" rx="7" fill="var(--raw-wash)" stroke="var(--raw)"/>
+            <text x="418" y="61" text-anchor="middle" fill="var(--raw)">raw + tol</text>
+            <rect x="354" y="128" width="128" height="46" rx="7" fill="var(--raw-wash)" stroke="var(--raw)"/>
+            <text x="418" y="155" text-anchor="middle" fill="var(--raw)">raw &minus; tol</text>
+
+            <line x1="484" y1="57" x2="532" y2="57" stroke="var(--muted)" marker-end="url(#ar)"/>
+            <line x1="484" y1="151" x2="532" y2="151" stroke="var(--muted)" marker-end="url(#ar)"/>
+            <text x="508" y="49" text-anchor="middle" fill="var(--muted)" font-size="10">Inverse</text>
+
+            <rect x="534" y="34" width="110" height="46" rx="7" fill="var(--accent-wash)" stroke="var(--accent)"/>
+            <text x="589" y="61" text-anchor="middle" fill="var(--accent-ink)">EU&#8323;</text>
+            <rect x="534" y="128" width="110" height="46" rx="7" fill="var(--accent-wash)" stroke="var(--accent)"/>
+            <text x="589" y="155" text-anchor="middle" fill="var(--accent-ink)">EU&#8322;</text>
+
+            <line x1="646" y1="57" x2="672" y2="95" stroke="var(--muted)" marker-end="url(#ar)"/>
+            <line x1="646" y1="151" x2="672" y2="113" stroke="var(--muted)" marker-end="url(#ar)"/>
+            <rect x="612" y="95" width="104" height="0" />
+            <text x="690" y="88" text-anchor="middle" fill="var(--ink)" font-size="11">max</text>
+            <text x="690" y="128" text-anchor="middle" fill="var(--ink)" font-size="11">|&#916;EU|</text>
+          </g>
+        </svg>
+        <figcaption>Path B round-trip: EU &rarr; raw &rarr; apply raw band &rarr; raw&plusmn; &rarr; EU&plusmn; &rarr; max deviation.</figcaption>
+      </figure>
+
+      <div class="pills">
+        <span class="pill eu">EU space: expected, EuLow/High (or the SI pair for an SI row)</span>
+        <span class="pill raw">raw space: RawLow, RawHigh</span>
+        <span class="pill">curve: ScaleType.Forward / .Inverse</span>
+      </div>
+
+      <h3>Path B steps</h3>
+      <ol class="steps">
+        <li><p><strong>Pick the EU range.</strong> Use <code>EuLow/EuHigh</code> for an English row,
+          <code>EuLowSi/EuHighSi</code> for an SI row. The result stays in that system.</p>
+          <span class="formula">euFrac = (expected &minus; EuLow) / (EuHigh &minus; EuLow)</span></li>
+        <li><p><strong>To the raw fraction</strong> through the scale curve.</p>
+          <span class="formula">rawFrac = ScaleType.Forward(euFrac)</span></li>
+        <li><p><strong>To raw units.</strong> <code>Direct</code>: below. <code>Reverse</code> (Linear only):
+          <code>RawHigh &minus; rawFrac &times; (RawHigh &minus; RawLow)</code>.</p>
+          <span class="formula">rawExpected = RawLow + rawFrac &times; (RawHigh &minus; RawLow)</span></li>
+        <li><p><strong>Sum the raw-space terms</strong> from the tolerance definition.</p>
+          <span class="formula">rawTol = &Sigma; rawTerm&#7522;(rawExpected, rawSpan, &hellip;)</span></li>
+        <li><p><strong>Apply the band</strong> in raw units &mdash; no clamping.</p>
+          <span class="formula">rawPlus = rawExpected + rawTol&nbsp;&nbsp;&nbsp;rawMinus = rawExpected &minus; rawTol</span></li>
+        <li><p><strong>Back to EU fractions</strong> through the inverse curve, <strong>extrapolating</strong>
+          when a raw edge lies outside <code>[RawLow, RawHigh]</code> (the expression is simply evaluated past
+          its endpoints).</p>
+          <span class="formula">euFrac&plusmn; = ScaleType.Inverse( (rawPlus/Minus &minus; RawLow) / (RawHigh &minus; RawLow) )</span></li>
+        <li><p><strong>Back to EU values,</strong> then add any EU-space terms outside the round-trip.</p>
+          <span class="formula">EU&plusmn; = EuLow + euFrac&plusmn; &times; (EuHigh &minus; EuLow) &nbsp;&plusmn;&nbsp; &Sigma;euTerm&#7522;</span></li>
+        <li><p><strong>The calculated tolerance</strong> is the larger EU-side deviation, rounded per the
+          mapping's precision policy, then written to the Tolerance cell.</p>
+          <span class="formula">tolerance = Max( |EU&#8323; &minus; expected| , |EU&#8322; &minus; expected| )</span></li>
+      </ol>
+
+      <div class="note decide">
+        <span class="tag">Extrapolation guard</span>
+        Linear curves extrapolate cleanly. <code>SquareRoot</code> / <code>Logarithmic</code> can go
+        non-finite just outside their domain (root of a negative, log of &le;0). When
+        <code>ScaleType.Inverse</code> returns a non-finite value the row is flagged
+        (&ldquo;band exceeds the sensor range and the curve is undefined there&rdquo;) and its Tolerance cell
+        is left untouched &mdash; rather than writing a bad number.
+      </div>
+
+      <div class="note">
+        <span class="tag">Implementation</span>
+        <code>ScaleCurve</code> compiles each expression once with NCalc and caches it; the engine calls
+        <code>Forward(double)</code> / <code>Inverse(double)</code>. Every intermediate &mdash; resolution path,
+        raw values, both EU edges, the precision applied &mdash; is kept on <code>ToleranceResult</code> so the
+        Check action and any audit view can show the full working.
+      </div>
+    </section>
+
+    <section id="apply">
+      <h2><span class="num">10</span> Applying &amp; checking</h2>
+      <p>Both actions run against the <strong>active worksheet</strong>, and are enabled only once
+        <strong>Signal Configuration is ready</strong> (resolved set complete for every signal the datasheet
+        references) <em>and</em> <strong>Tolerance Configuration is ready</strong> (every needed
+        <code>signalType + moduleType</code> has a definition).</p>
+
+      <div class="grid2">
+        <div class="card">
+          <h4>Apply all calculated tolerances</h4>
+          <ul>
+            <li>Removes <strong>all</strong> tool-authored cell comments on the sheet first.</li>
+            <li>Computes the tolerance for every mapped test-case row.</li>
+            <li>Writes the value into the Tolerance column.</li>
+            <li>Rows with no signal match / no tolerance / an extrapolation warning are collected into a summary
+              dialog; their Tolerance cells are left untouched and flagged.</li>
+          </ul>
+        </div>
+        <div class="card">
+          <h4>Check current tolerances</h4>
+          <ul>
+            <li>Computes the same values but writes nothing to the Tolerance column.</li>
+            <li>Where the existing cell value differs from the computed value beyond a small relative epsilon,
+              adds a cell comment: expected vs. found, the signal used, and the band applied.</li>
+            <li>Ends with a summary: count checked, count mismatched, count un-checkable.</li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="note">
+        <span class="tag">Comments</span>
+        <strong>Classic notes</strong> (<code>Range.Comment</code> / <code>AddCommentThreaded</code> is not used).
+        Tool comments carry a fixed marker prefix (e.g. <code>[ToleranceTool]</code>) and their cell addresses
+        are also tracked in per-sheet workbook config, so "Clear Tool Comments" and the Apply pre-clean only
+        ever remove the tool's own notes and never an engineer's.
+      </div>
+
+      <p><strong>Pass/Fail</strong> is out of scope for the first releases but the mapping already captures the
+        column; a later action can set it from <code>|Actual &minus; Expected| &le; Tolerance</code>.</p>
+    </section>
+
+    <section id="ribbon">
+      <h2><span class="num">11</span> Ribbon &amp; UI surface</h2>
+      <p>One ribbon tab, <strong>Tolerance Tool</strong>, three groups:</p>
+      <div class="scroll-x">
+        <table>
+          <thead><tr><th>Group</th><th>Controls</th></tr></thead>
+          <tbody>
+            <tr><td class="k">Setup</td><td>Datasheet Mapping &middot; Signal Configuration &middot; Alias Tables &middot; Tolerance Editor &middot; Scale Types &middot; Signal Types</td></tr>
+            <tr><td class="k">Run</td><td>Apply Tolerances &middot; Check Tolerances &middot; Clear Tool Comments</td></tr>
+            <tr><td class="k">Status</td><td>Active sheet name &middot; Signal Config <span style="color:var(--good)">&#10003;</span>/<span style="color:var(--crit)">&#10007;</span> &middot; Tolerance Config <span style="color:var(--good)">&#10003;</span>/<span style="color:var(--crit)">&#10007;</span> (label, refreshes on sheet activate)</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p>Setup screens open as <strong>custom task panes</strong> (dockable, stay open beside the sheet while the
+        user points at columns); the import wizard and editors that need room open as <strong>modal dialogs</strong>.
+        Grids are <code>DataGridView</code>. The <em>Run</em> buttons show a progress bar and a final summary
+        dialog with a copyable report.</p>
+    </section>
+
+    <section id="phases">
+      <h2><span class="num">12</span> Build phases</h2>
+      <p>Ordered so the risky, high-value core is proven first and every later phase has something to run against.</p>
+
+      <div class="phase"><div class="pid">P0</div><div>
+        <h3>Solution scaffold</h3>
+        <p>Six projects, Excel-DNA <code>.dna</code>, ribbon stub loads in Excel, CI build produces the <code>.xll</code>.</p>
+        <div class="dep">depends on: &mdash;</div>
+      </div></div>
+      <div class="phase"><div class="pid">P1</div><div>
+        <h3>Calculation engine + scale curves</h3>
+        <p>Domain models, <code>ScaleCurve</code> (NCalc), the engine with both paths (EU fast path + raw
+          round-trip), typed tolerance terms, extrapolation guard, precision policy, <code>ToleranceResult</code>.
+          xUnit tests with hand-worked cases: linear direct, linear reverse, square-root, a logarithmic curve,
+          EU-only terms, mixed terms, out-of-range extrapolation. <strong>No UI, no Excel.</strong></p>
+        <div class="dep">depends on: P0</div>
+      </div></div>
+      <div class="phase"><div class="pid">P2</div><div>
+        <h3>Tolerance library + editor</h3>
+        <p>XML load/save/validate, term-expression checking, the Tolerance Editor dialog with live band preview.</p>
+        <div class="dep">depends on: P1</div>
+      </div></div>
+      <div class="phase"><div class="pid">P3</div><div>
+        <h3>Datasheet mapping + Apply/Check (row-oriented)</h3>
+        <p>Mapping task pane for the active sheet, column resolution, unit-system default, the System&nbsp;ID
+          resolution ladder + alias-table editor + per-worksheet resolution review grid, precision policy,
+          row iteration, write Tolerance column, classic-comment management, summary report &mdash; running
+          against a hand-authored signal set fixture. Row orientation only.</p>
+        <div class="dep">depends on: P1, P2</div>
+      </div></div>
+      <div class="phase"><div class="pid">P4</div><div>
+        <h3>File-based signal import</h3>
+        <p><code>ISignalSource</code>, xlsx/csv reader, per-source field mapping UI, master selection, the join,
+          completeness validation, the preview grid.</p>
+        <div class="dep">depends on: P1</div>
+      </div></div>
+      <div class="phase"><div class="pid">P5</div><div>
+        <h3>Signal-type registry + scale-type editor</h3>
+        <p>Registry XML + editor; scale-type editor with the monotonic/endpoint validator and a curve plot.</p>
+        <div class="dep">depends on: P1, P4</div>
+      </div></div>
+      <div class="phase"><div class="pid">P6</div><div>
+        <h3>Access source</h3>
+        <p>Flesh out <code>AccessSignalSource</code>: connection UI, table/query browse, SQL stored in the import
+          definition, into the same join pipeline.</p>
+        <div class="dep">depends on: P4</div>
+      </div></div>
+      <div class="phase"><div class="pid">P7</div><div>
+        <h3>Column-oriented datasheets</h3>
+        <p>Extend the mapping and datasheet reader/writer to handle test cases laid out across columns
+          (headers in a column). Everything downstream is orientation-agnostic already.</p>
+        <div class="dep">depends on: P3</div>
+      </div></div>
+      <div class="phase"><div class="pid">P8</div><div>
+        <h3>Packaging &amp; rollout</h3>
+        <p>Signed <code>.xll</code>, per-user install/update, a sample workbook + starter config libraries in
+          <code>%APPDATA%\ToleranceTool\</code>, user guide. Optional Pass/Fail action.</p>
+        <div class="dep">depends on: all</div>
+      </div></div>
+    </section>
+
+    <section id="questions">
+      <h2><span class="num">13</span> Decisions needed</h2>
+
+      <h4>Resolved</h4>
+      <div class="scroll-x">
+        <table>
+          <thead><tr><th>Question</th><th>Answer</th></tr></thead>
+          <tbody>
+            <tr><td>System ID &rarr; signal link</td><td>Alias tables (possibly several); System ID usually <em>contains</em> the sensor name. Attempt the auto-match, then the user reviews it per worksheet; corrections persist as per-sheet overrides. Ladder in &sect;5.</td></tr>
+            <tr><td>Datasheet units</td><td>User sets English or SI per sheet (usually uniform). A per-row units column is honoured if mapped but not relied on; every signal is assumed to carry both English and SI ranges.</td></tr>
+            <tr><td>Conversion sense</td><td>It is <code>Reverse</code> (not "inverse"), and only ever applies to <code>Linear</code>.</td></tr>
+            <tr><td>Tolerance forms</td><td><code>&plusmn;0.3%</code>, <code>&plusmn;0.45&nbsp;degF</code>, <code>&plusmn;0.5&nbsp;rpm</code> &mdash; latter two already EU. Typed terms in &sect;5.</td></tr>
+            <tr><td>Percent basis</td><td>Default <strong>% of raw span</strong> (4-20&nbsp;mA &rarr; % of 16). Option: % of EU span, English or SI.</td></tr>
+            <tr><td>Out-of-range band</td><td>Extrapolate through the curve; flag only if the curve goes non-finite.</td></tr>
+            <tr><td>Written precision</td><td>Offer "match the significant digits shown in the Expected cell"; round to that when chosen. Fixed sig-figs / decimals also available.</td></tr>
+            <tr><td>Config location</td><td>Per-user, <code>%APPDATA%\ToleranceTool\</code> for shared libraries; workbook for per-sheet setup.</td></tr>
+            <tr><td>Multiple datasheets</td><td>The tool works on whichever sheet is <strong>active</strong>; setup is stored per sheet.</td></tr>
+            <tr><td>Comment style</td><td>Classic notes, with a marker prefix + tracked addresses so only the tool's own notes are cleared.</td></tr>
+            <tr><td>Orientation</td><td>Row-oriented at launch (P3). Column-oriented is P7.</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h4>Still open &mdash; smaller, can be settled during the phase</h4>
+      <ol>
+        <li><strong>Percent-of-reading.</strong> Keep <code>basis="reading"</code> as a third option, or are all
+          real specs span-based? (Affects only the Tolerance Editor's option list.)</li>
+        <li><strong>Auto-match strictness.</strong> Token boundary rules for step&nbsp;3 &mdash; is
+          <code>FT-201</code> allowed to match System ID <code>FT-2011</code>? (Proposed: no &mdash; whole-token only.)</li>
+        <li><strong>Per-row units column values.</strong> If such a column is ever mapped, what literal values
+          should be recognised (<code>EN</code>/<code>SI</code>, <code>ENG</code>/<code>METRIC</code>, unit
+          strings&hellip;)?</li>
+        <li><strong>Check tolerance epsilon.</strong> Relative tolerance for "the existing value matches" &mdash;
+          fixed (e.g. 1e-6 relative), or tied to the row's precision policy?</li>
+        <li><strong>Signal-type &rarr; raw range</strong> when a signal's imported raw values disagree with the
+          registry (e.g. a live 3.8&ndash;20.5 mA range): trust the registry, the import, or flag?</li>
+      </ol>
+    </section>
+
+    <footer>
+      Tolerance Tool &mdash; architecture &amp; design plan &middot; draft 2026-08-28 &middot; Excel-DNA / .NET Framework 4.8 / x64
+    </footer>
+  </main>
+</div>

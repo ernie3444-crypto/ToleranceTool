@@ -1,0 +1,13 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <AssemblyName>ToleranceTool.Configuration</AssemblyName>
+    <RootNamespace>ToleranceTool.Configuration</RootNamespace>
+    <Description>Loads, saves and validates every configuration artifact.</Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\ToleranceTool.Core\ToleranceTool.Core.csproj" />
+  </ItemGroup>
+
+</Project>

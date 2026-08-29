@@ -1,0 +1,30 @@
+<Project>
+
+  <!-- Shared settings for every project in the Tolerance Tool solution. -->
+  <PropertyGroup>
+    <TargetFramework>net48</TargetFramework>
+    <LangVersion>latest</LangVersion>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <Platforms>x64</Platforms>
+    <PlatformTarget>x64</PlatformTarget>
+    <AppendPlatformToOutputPath>false</AppendPlatformToOutputPath>
+    <Deterministic>true</Deterministic>
+    <GenerateDocumentationFile>false</GenerateDocumentationFile>
+    <AppDesignerFolder>Properties</AppDesignerFolder>
+
+    <Product>Tolerance Tool</Product>
+    <Company>Tolerance Tool</Company>
+    <Authors>Tolerance Tool</Authors>
+    <Version>0.1.0</Version>
+    <Copyright>Copyright © 2026</Copyright>
+
+    <!-- net48 has no ref pack on machines without Visual Studio; this package supplies it. -->
+    <DisableImplicitFrameworkReferences>false</DisableImplicitFrameworkReferences>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NETFramework.ReferenceAssemblies" Version="1.0.3" PrivateAssets="all" />
+  </ItemGroup>
+
+</Project>

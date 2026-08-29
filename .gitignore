@@ -1,0 +1,34 @@
+# Build output
+[Bb]in/
+[Oo]bj/
+[Dd]ebug/
+[Rr]elease/
+*.user
+*.suo
+.vs/
+
+# NuGet
+*.nupkg
+packages/
+.nuget/
+
+# Excel-DNA pack output
+*-AddIn.xll
+*-AddIn64.xll
+*-AddIn.xll.config
+*-AddIn64.xll.config
+*.dna.bak
+
+# Test results
+[Tt]est[Rr]esults/
+*.trx
+*.coverage
+coverage*.json
+
+# Rider / VS Code
+.idea/
+*.DotSettings.user
+
+# OS
+Thumbs.db
+.DS_Store
