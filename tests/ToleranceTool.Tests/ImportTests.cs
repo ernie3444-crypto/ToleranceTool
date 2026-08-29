@@ -146,6 +146,29 @@ namespace ToleranceTool.Tests
         }
 
         [Fact]
+        public void Build_KeepsASignalMissingAFieldThatIsMappedButNotRequired()
+        {
+            (ImportSourceDefinition masterDef, TabularData masterData) = Master();
+            (ImportSourceDefinition rangeDef, TabularData rangeData) = Ranges();
+
+            // Mark every ranges binding optional; drop UT-1002's ranges row.
+            foreach (FieldBinding binding in rangeDef.Fields)
+            {
+                binding.Required = false;
+            }
+
+            var trimmed = TabularData.ParseCsv("UID,Lo,Hi,LoSI,HiSI\nUT-1001,0,250,0,0.0158\n");
+
+            ResolvedSignalSet set = new SignalSetBuilder()
+                .Add(new FileSignalSource(masterDef, masterData), masterDef)
+                .Add(new FileSignalSource(rangeDef, trimmed), rangeDef)
+                .Build().Value;
+
+            Assert.True(set.Find("UT-1002")!.IsComplete);
+            Assert.True(set.IsReady);
+        }
+
+        [Fact]
         public void Build_ReportsANonNumericRangeValue()
         {
             (ImportSourceDefinition masterDef, TabularData masterData) = Master();

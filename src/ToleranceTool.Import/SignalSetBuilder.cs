@@ -210,8 +210,11 @@ namespace ToleranceTool.Import
                     return bindings.Any(b => b!.Required);
                 }
 
-                // Not bound anywhere (or no definitions supplied): fall back to the field's default.
-                return SignalField.Find(field)?.RequiredByDefault ?? false;
+                // When definitions are supplied, "required" is entirely user-driven: a
+                // field that is not mapped anywhere is not required (and cannot be).
+                // Only when no definitions are supplied at all (raw-source tests) do we
+                // fall back to the field's default.
+                return _definitions.Count == 0 && (SignalField.Find(field)?.RequiredByDefault ?? false);
             }
 
             RequireText(SignalField.SensorName, v => config.SensorName = v, RequiredFor(SignalField.SensorName));

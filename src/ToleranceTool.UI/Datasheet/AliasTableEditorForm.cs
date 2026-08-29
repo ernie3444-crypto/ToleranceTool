@@ -26,7 +26,9 @@ namespace ToleranceTool.UI.Datasheet
         };
 
         private readonly Label _status = new Label { Dock = DockStyle.Bottom, Height = 22, ForeColor = Color.DimGray, TextAlign = ContentAlignment.MiddleLeft };
-        private bool _loading;
+
+        private int _shownIndex = -1;
+        private bool _suspend;
 
         public AliasTableEditorForm(string? path = null)
         {
@@ -41,17 +43,9 @@ namespace ToleranceTool.UI.Datasheet
             _entries.Columns.Add(new DataGridViewTextBoxColumn { Name = "Target", HeaderText = "Target value" });
             _entries.Columns.Add(new DataGridViewComboBoxColumn { Name = "Match", HeaderText = "Match", Items = { "exact", "contains", "regex" } });
 
-            _tables.SelectedIndexChanged += (s, e) => LoadSelected();
-            _name.TextChanged += (s, e) => WriteBack();
-            _priority.TextChanged += (s, e) => WriteBack();
-            _entries.CellEndEdit += (s, e) => WriteBack();
-            _entries.CurrentCellDirtyStateChanged += (s, e) =>
-            {
-                if (_entries.IsCurrentCellDirty)
-                {
-                    _entries.CommitEdit(DataGridViewDataErrorContexts.Commit);
-                }
-            };
+            _tables.SelectedIndexChanged += (s, e) => OnTableSelectionChanged();
+            _name.TextChanged += (s, e) => CommitShown();
+            _priority.TextChanged += (s, e) => CommitShown();
 
             var bar = new ToolStrip { GripStyle = ToolStripGripStyle.Hidden };
             bar.Items.Add(new ToolStripButton("Add table", null, (s, e) => AddTable()));
@@ -69,11 +63,15 @@ namespace ToleranceTool.UI.Datasheet
             {
                 LoadFrom(_path);
             }
+            else
+            {
+                LoadShown();
+            }
         }
 
         private Control BuildBody()
         {
-            var split = new SplitContainer { Dock = DockStyle.Fill, SplitterDistance = 200 };
+            var split = new SplitContainer { Dock = DockStyle.Fill };
             split.Panel1.Controls.Add(_tables);
             split.Panel1.Controls.Add(new Label { Text = "Alias tables", Dock = DockStyle.Top, Height = 20, Font = Bold() });
 
@@ -94,7 +92,8 @@ namespace ToleranceTool.UI.Datasheet
             ConfigLoadResult<AliasTableSet> result = AliasTablesXml.Load(path);
             _set = result.Value;
             _path = path;
-            RefreshTables();
+            _shownIndex = -1;
+            RefreshTables(select: _set.Tables.Count > 0 ? 0 : -1);
             _status.Text = result.Issues.Count == 0
                 ? $"Loaded {_set.Tables.Count} table(s) — {path}"
                 : $"Loaded with {result.Issues.Count} issue(s): {result.Issues[0].Message}";
@@ -113,6 +112,7 @@ namespace ToleranceTool.UI.Datasheet
 
         private void Save(string path)
         {
+            CommitShown();
             try
             {
                 AliasTablesXml.Save(_set, path);
@@ -136,63 +136,76 @@ namespace ToleranceTool.UI.Datasheet
             }
         }
 
-        private AliasTable? Selected =>
-            _tables.SelectedIndex >= 0 && _tables.SelectedIndex < _set.Tables.Count ? _set.Tables[_tables.SelectedIndex] : null;
-
-        private void RefreshTables()
+        private void RefreshTables(int select)
         {
-            int selected = _tables.SelectedIndex;
+            _suspend = true;
             _tables.BeginUpdate();
             _tables.Items.Clear();
             foreach (AliasTable table in _set.Tables)
             {
-                _tables.Items.Add($"{table.Name}  (priority {table.Priority}, {table.Entries.Count})");
+                _tables.Items.Add(Label(table));
             }
 
             _tables.EndUpdate();
-            if (selected >= 0 && selected < _tables.Items.Count)
+            if (select >= 0 && select < _tables.Items.Count)
             {
-                _tables.SelectedIndex = selected;
+                _tables.SelectedIndex = select;
             }
-            else if (_tables.Items.Count > 0)
-            {
-                _tables.SelectedIndex = 0;
-            }
-            else
-            {
-                LoadSelected();
-            }
+
+            _suspend = false;
+            _shownIndex = _tables.SelectedIndex;
+            LoadShown();
         }
+
+        private static string Label(AliasTable table) =>
+            $"{table.Name}  (priority {table.Priority}, {table.Entries.Count})";
 
         private void AddTable()
         {
+            CommitShown();
             _set.Add(new AliasTable { Name = "New table", Priority = (_set.Tables.Count + 1) * 10 });
-            RefreshTables();
-            _tables.SelectedIndex = _set.Tables.Count - 1;
+            RefreshTables(select: _set.Tables.Count - 1);
         }
 
         private void DeleteTable()
         {
-            AliasTable? table = Selected;
-            if (table != null)
+            int index = _tables.SelectedIndex;
+            if (index < 0 || index >= _set.Tables.Count)
             {
-                var remaining = _set.Tables.Where(t => !ReferenceEquals(t, table)).ToList();
-                _set = AliasTableSet.Empty();
-                remaining.ForEach(_set.Add);
-                RefreshTables();
+                return;
             }
+
+            var remaining = _set.Tables.Where((_, i) => i != index).ToList();
+            _set = AliasTableSet.Empty();
+            remaining.ForEach(_set.Add);
+            _shownIndex = -1;
+            RefreshTables(select: Math.Min(index, _set.Tables.Count - 1));
         }
 
-        private void LoadSelected()
+        private void OnTableSelectionChanged()
         {
-            _loading = true;
-            AliasTable? table = Selected;
+            if (_suspend)
+            {
+                return;
+            }
+
+            CommitShown();
+            _shownIndex = _tables.SelectedIndex;
+            LoadShown();
+        }
+
+        private void LoadShown()
+        {
+            _suspend = true;
+            _entries.Rows.Clear();
+
+            AliasTable? table = _shownIndex >= 0 && _shownIndex < _set.Tables.Count ? _set.Tables[_shownIndex] : null;
             bool enabled = table != null;
             _name.Enabled = _priority.Enabled = _entries.Enabled = enabled;
 
             _name.Text = table?.Name ?? string.Empty;
             _priority.Text = table?.Priority.ToString() ?? "0";
-            _entries.Rows.Clear();
+
             if (table != null)
             {
                 foreach (AliasEntry entry in table.Entries)
@@ -205,17 +218,18 @@ namespace ToleranceTool.UI.Datasheet
                 }
             }
 
-            _loading = false;
+            _suspend = false;
         }
 
-        private void WriteBack()
+        private void CommitShown()
         {
-            if (_loading || Selected == null)
+            if (_suspend || _shownIndex < 0 || _shownIndex >= _set.Tables.Count)
             {
                 return;
             }
 
-            AliasTable table = Selected;
+            _entries.EndEdit();
+            AliasTable table = _set.Tables[_shownIndex];
             table.Name = _name.Text.Trim();
             table.Priority = int.TryParse(_priority.Text.Trim(), out int p) ? p : 0;
 
@@ -246,11 +260,13 @@ namespace ToleranceTool.UI.Datasheet
                 });
             }
 
-            int index = _tables.SelectedIndex;
-            if (index >= 0)
+            _suspend = true;
+            if (_shownIndex < _tables.Items.Count)
             {
-                _tables.Items[index] = $"{table.Name}  (priority {table.Priority}, {table.Entries.Count})";
+                _tables.Items[_shownIndex] = Label(table);
             }
+
+            _suspend = false;
         }
 
         private static Font Bold() => new Font(SystemFonts.DefaultFont, FontStyle.Bold);

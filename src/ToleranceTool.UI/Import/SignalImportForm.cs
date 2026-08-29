@@ -7,6 +7,7 @@ using System.Windows.Forms;
 using ToleranceTool.Configuration;
 using ToleranceTool.Core.Signals;
 using ToleranceTool.Import;
+using ToleranceTool.Import.Access;
 
 namespace ToleranceTool.UI.Import
 {
@@ -20,10 +21,11 @@ namespace ToleranceTool.UI.Import
         private readonly List<ImportSourceDefinition> _sources = new List<ImportSourceDefinition>();
 
         private readonly ListBox _sourceList = new ListBox { Dock = DockStyle.Fill, IntegralHeight = false };
-        private readonly CheckBox _isMaster = new CheckBox { Text = "This source is the master (links Sensor Name → Universal ID)", AutoSize = true };
-        private readonly TextBox _sheetName = new TextBox { Width = 160 };
-        private readonly TextBox _headerRow = new TextBox { Width = 60, Text = "1" };
-        private readonly TextBox _keyColumn = new TextBox { Width = 60, Text = "A" };
+        private readonly CheckBox _isMaster = new CheckBox { Text = "This source is the master (links Sensor Name → Universal ID)", AutoSize = true, Margin = new Padding(3, 6, 3, 6) };
+        private readonly TextBox _sheetName = new TextBox { Width = 180, Anchor = AnchorStyles.Left };
+        private readonly TextBox _headerRow = new TextBox { Width = 60, Text = "1", Anchor = AnchorStyles.Left };
+        private readonly TextBox _keyColumn = new TextBox { Width = 120, Text = "A", Anchor = AnchorStyles.Left };
+
         private readonly DataGridView _mapping = new DataGridView
         {
             Dock = DockStyle.Fill,
@@ -31,6 +33,7 @@ namespace ToleranceTool.UI.Import
             AllowUserToDeleteRows = false,
             RowHeadersVisible = false,
             AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.Fill,
+            EditMode = DataGridViewEditMode.EditOnEnter,
         };
 
         private readonly DataGridView _preview = new DataGridView
@@ -44,50 +47,80 @@ namespace ToleranceTool.UI.Import
 
         private readonly ListBox _issues = new ListBox { Dock = DockStyle.Fill, IntegralHeight = false };
         private readonly Label _status = new Label { Dock = DockStyle.Bottom, Height = 22, ForeColor = Color.DimGray, TextAlign = ContentAlignment.MiddleLeft };
+        private readonly CheckBox _hideIncomplete = new CheckBox { Text = "Hide incomplete", AutoSize = true, Margin = new Padding(12, 8, 3, 3) };
 
-        private bool _loadingSource;
+        private int _shownIndex = -1;
+        private bool _suspend;
+
+        private SplitContainer _outerSplit = null!;
+        private SplitContainer _topSplit = null!;
+        private SplitContainer _bottomSplit = null!;
 
         public SignalImportForm()
         {
             Text = "Signal Configuration Import";
             StartPosition = FormStartPosition.CenterParent;
-            ClientSize = new Size(1000, 660);
-            MinimumSize = new Size(820, 560);
+            ClientSize = new Size(1040, 700);
+            MinimumSize = new Size(860, 580);
 
             BuildMappingColumns();
-            _sourceList.SelectedIndexChanged += (s, e) => LoadSelectedSource();
-            _isMaster.CheckedChanged += (s, e) => WriteBackSource();
-            _sheetName.TextChanged += (s, e) => WriteBackSource();
-            _headerRow.TextChanged += (s, e) => WriteBackSource();
-            _keyColumn.TextChanged += (s, e) => WriteBackSource();
-            _mapping.CellEndEdit += (s, e) => WriteBackSource();
-            _mapping.CurrentCellDirtyStateChanged += (s, e) =>
-            {
-                if (_mapping.IsCurrentCellDirty)
-                {
-                    _mapping.CommitEdit(DataGridViewDataErrorContexts.Commit);
-                }
-            };
+
+            _sourceList.SelectedIndexChanged += (s, e) => OnSourceSelectionChanged();
+            _isMaster.CheckedChanged += (s, e) => OnMasterToggled();
+            _sheetName.TextChanged += (s, e) => CommitShownSource();
+            _headerRow.TextChanged += (s, e) => CommitShownSource();
+            _keyColumn.TextChanged += (s, e) => CommitShownSource();
+            _hideIncomplete.CheckedChanged += (s, e) => { if (_preview.Columns.Count > 0) BuildPreview(); };
 
             Controls.Add(BuildBody());
             Controls.Add(_status);
 
             ResultSet = new ResolvedSignalSet(Array.Empty<ResolvedSignal>());
+            SetEditorEnabled(false);
         }
 
-        /// <summary>The last preview build. Consumed by the caller when the dialog closes with OK.</summary>
+        /// <summary>The last preview build (all signals). Only the complete ones are saved / used downstream.</summary>
         public ResolvedSignalSet ResultSet { get; private set; }
 
         // --- layout ----------------------------------------------------------
 
+        protected override void OnLoad(EventArgs e)
+        {
+            base.OnLoad(e);
+            TrySetSplit(_outerSplit, 0.48);
+            TrySetSplit(_topSplit, 0.30);
+            TrySetSplit(_bottomSplit, 0.70);
+        }
+
+        private static void TrySetSplit(SplitContainer split, double fraction)
+        {
+            try
+            {
+                int extent = split.Orientation == Orientation.Vertical ? split.Width : split.Height;
+                int distance = (int)(extent * fraction);
+                distance = Math.Max(split.Panel1MinSize, Math.Min(distance, extent - split.Panel2MinSize));
+                if (distance > 0)
+                {
+                    split.SplitterDistance = distance;
+                }
+            }
+            catch (InvalidOperationException)
+            {
+                // window too small at load time; the default split is acceptable
+            }
+        }
+
         private Control BuildBody()
         {
-            var split = new SplitContainer { Dock = DockStyle.Fill, Orientation = Orientation.Horizontal, SplitterDistance = 360 };
+            var split = new SplitContainer { Dock = DockStyle.Fill, Orientation = Orientation.Horizontal };
+            _outerSplit = split;
 
-            var top = new SplitContainer { Dock = DockStyle.Fill, SplitterDistance = 300 };
+            var top = new SplitContainer { Dock = DockStyle.Fill };
+            _topSplit = top;
 
+            // left: source list
             var sourcesPanel = new Panel { Dock = DockStyle.Fill };
-            var sourceButtons = new FlowLayoutPanel { Dock = DockStyle.Bottom, Height = 32 };
+            var sourceButtons = new FlowLayoutPanel { Dock = DockStyle.Bottom, Height = 34 };
             sourceButtons.Controls.Add(Button("Add file…", AddFile));
             sourceButtons.Controls.Add(Button("Add Access…", AddAccessSource));
             sourceButtons.Controls.Add(Button("Remove", RemoveSource));
@@ -96,31 +129,25 @@ namespace ToleranceTool.UI.Import
             sourcesPanel.Controls.Add(new Label { Text = "Sources", Dock = DockStyle.Top, Height = 20, Font = Bold() });
             top.Panel1.Controls.Add(sourcesPanel);
 
+            // right: field mapping editor for the selected source
             var mapPanel = new Panel { Dock = DockStyle.Fill };
-            var header = new FlowLayoutPanel { Dock = DockStyle.Top, Height = 60, WrapContents = true };
-            header.Controls.Add(_isMaster);
-            header.Controls.Add(new Label { Text = "  Sheet:", AutoSize = true, Padding = new Padding(0, 6, 0, 0) });
-            header.Controls.Add(_sheetName);
-            header.Controls.Add(new Label { Text = "  Header row:", AutoSize = true, Padding = new Padding(0, 6, 0, 0) });
-            header.Controls.Add(_headerRow);
-            header.Controls.Add(new Label { Text = "  Universal ID column:", AutoSize = true, Padding = new Padding(0, 6, 0, 0) });
-            header.Controls.Add(_keyColumn);
-            mapPanel.Controls.Add(_mapping);
-            mapPanel.Controls.Add(header);
+            mapPanel.Controls.Add(_mapping);                    // added first -> fills remaining space
+            mapPanel.Controls.Add(BuildSettingsPanel());        // added second -> docks above the grid
             mapPanel.Controls.Add(new Label { Text = "Field mapping for selected source", Dock = DockStyle.Top, Height = 20, Font = Bold() });
             top.Panel2.Controls.Add(mapPanel);
 
-            var bottom = new SplitContainer { Dock = DockStyle.Fill, SplitterDistance = 700 };
+            var bottom = new SplitContainer { Dock = DockStyle.Fill };
+            _bottomSplit = bottom;
 
             var previewPanel = new Panel { Dock = DockStyle.Fill };
-            var previewButtons = new FlowLayoutPanel { Dock = DockStyle.Bottom, Height = 34 };
+            var previewButtons = new FlowLayoutPanel { Dock = DockStyle.Bottom, Height = 36 };
             previewButtons.Controls.Add(Button("Build preview", BuildPreview));
-            var useButton = Button("Use this set", () => { DialogResult = DialogResult.OK; Close(); });
-            previewButtons.Controls.Add(useButton);
             previewButtons.Controls.Add(Button("Save signal set…", SaveSignalSet));
+            previewButtons.Controls.Add(Button("Use this set", () => { DialogResult = DialogResult.OK; Close(); }));
+            previewButtons.Controls.Add(_hideIncomplete);
             previewPanel.Controls.Add(_preview);
             previewPanel.Controls.Add(previewButtons);
-            previewPanel.Controls.Add(new Label { Text = "Preview", Dock = DockStyle.Top, Height = 20, Font = Bold() });
+            previewPanel.Controls.Add(new Label { Text = "Preview  (pink = incomplete, excluded from the saved set)", Dock = DockStyle.Top, Height = 20, Font = Bold() });
             bottom.Panel1.Controls.Add(previewPanel);
 
             bottom.Panel2.Controls.Add(_issues);
@@ -131,11 +158,40 @@ namespace ToleranceTool.UI.Import
             return split;
         }
 
+        private Control BuildSettingsPanel()
+        {
+            var table = new TableLayoutPanel
+            {
+                Dock = DockStyle.Top,
+                AutoSize = true,
+                AutoSizeMode = AutoSizeMode.GrowAndShrink,
+                ColumnCount = 2,
+                Padding = new Padding(6, 4, 6, 8),
+            };
+            table.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
+            table.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
+
+            table.Controls.Add(_isMaster, 0, 0);
+            table.SetColumnSpan(_isMaster, 2);
+
+            void Row(string label, Control control, int row)
+            {
+                table.Controls.Add(new Label { Text = label, AutoSize = true, Anchor = AnchorStyles.Left, Margin = new Padding(3, 7, 12, 3) }, 0, row);
+                table.Controls.Add(control, 1, row);
+                control.Margin = new Padding(3, 4, 3, 4);
+            }
+
+            Row("Worksheet (xlsx only)", _sheetName, 1);
+            Row("Header row (1-based)", _headerRow, 2);
+            Row("Universal ID column", _keyColumn, 3);
+            return table;
+        }
+
         private void BuildMappingColumns()
         {
-            _mapping.Columns.Add(new DataGridViewTextBoxColumn { Name = "Field", HeaderText = "Field", ReadOnly = true, FillWeight = 40 });
-            _mapping.Columns.Add(new DataGridViewTextBoxColumn { Name = "Column", HeaderText = "Column / number", FillWeight = 35 });
-            _mapping.Columns.Add(new DataGridViewCheckBoxColumn { Name = "Required", HeaderText = "Required", FillWeight = 25 });
+            _mapping.Columns.Add(new DataGridViewTextBoxColumn { Name = "Field", HeaderText = "Field", ReadOnly = true, FillWeight = 34 });
+            _mapping.Columns.Add(new DataGridViewTextBoxColumn { Name = "Column", HeaderText = "Column / number", FillWeight = 34 });
+            _mapping.Columns.Add(new DataGridViewCheckBoxColumn { Name = "Required", HeaderText = "Required (blank ⇒ drop signal)", FillWeight = 32 });
         }
 
         // --- sources --------------------------------------------------------
@@ -153,10 +209,11 @@ namespace ToleranceTool.UI.Import
                     return;
                 }
 
+                CommitShownSource();
                 foreach (string path in open.FileNames)
                 {
-                    SignalSourceKind kind = Path.GetExtension(path).ToLowerInvariant() == ".csv"
-                        || Path.GetExtension(path).ToLowerInvariant() == ".tsv"
+                    string ext = Path.GetExtension(path).ToLowerInvariant();
+                    SignalSourceKind kind = ext == ".csv" || ext == ".tsv"
                         ? SignalSourceKind.DelimitedText
                         : SignalSourceKind.Workbook;
 
@@ -173,8 +230,7 @@ namespace ToleranceTool.UI.Import
                     _sources.Add(definition);
                 }
 
-                RefreshSourceList();
-                _sourceList.SelectedIndex = _sourceList.Items.Count - 1;
+                RefreshSourceList(select: _sources.Count - 1);
             }
         }
 
@@ -187,66 +243,135 @@ namespace ToleranceTool.UI.Import
                     return;
                 }
 
+                CommitShownSource();
                 ImportSourceDefinition definition = dialog.BuildDefinition();
                 if (definition.IsMaster || _sources.Count == 0)
                 {
-                    definition.IsMaster = _sources.Count == 0 || definition.IsMaster;
-                    if (definition.IsMaster)
-                    {
-                        _sources.ForEach(s => s.IsMaster = false);
-                    }
+                    definition.IsMaster = true;
+                    _sources.ForEach(s => s.IsMaster = false);
                 }
 
                 _sources.Add(definition);
-                RefreshSourceList();
-                _sourceList.SelectedIndex = _sourceList.Items.Count - 1;
+                RefreshSourceList(select: _sources.Count - 1);
             }
         }
 
         private void RemoveSource()
         {
             int index = _sourceList.SelectedIndex;
-            if (index >= 0)
-            {
-                _sources.RemoveAt(index);
-                RefreshSourceList();
-            }
-        }
-
-        private void RefreshSourceList()
-        {
-            _sourceList.BeginUpdate();
-            _sourceList.Items.Clear();
-            foreach (ImportSourceDefinition source in _sources)
-            {
-                _sourceList.Items.Add(source.IsMaster ? $"{source.Name}   [master]" : source.Name);
-            }
-
-            _sourceList.EndUpdate();
-            LoadSelectedSource();
-        }
-
-        private ImportSourceDefinition? Current =>
-            _sourceList.SelectedIndex >= 0 && _sourceList.SelectedIndex < _sources.Count
-                ? _sources[_sourceList.SelectedIndex]
-                : null;
-
-        private void LoadSelectedSource()
-        {
-            ImportSourceDefinition? source = Current;
-            _mapping.Rows.Clear();
-            bool enabled = source != null;
-            _isMaster.Enabled = _sheetName.Enabled = _headerRow.Enabled = _keyColumn.Enabled = _mapping.Enabled = enabled;
-            if (source == null)
+            if (index < 0)
             {
                 return;
             }
 
-            _loadingSource = true;
+            _sources.RemoveAt(index);
+            _shownIndex = -1;
+            RefreshSourceList(select: Math.Min(index, _sources.Count - 1));
+        }
+
+        private void RefreshSourceList(int select)
+        {
+            _suspend = true;
+            _sourceList.BeginUpdate();
+            _sourceList.Items.Clear();
+            foreach (ImportSourceDefinition source in _sources)
+            {
+                _sourceList.Items.Add(Label(source));
+            }
+
+            _sourceList.EndUpdate();
+            if (select >= 0 && select < _sourceList.Items.Count)
+            {
+                _sourceList.SelectedIndex = select;
+            }
+
+            _suspend = false;
+
+            _shownIndex = _sourceList.SelectedIndex;
+            LoadShownSource();
+        }
+
+        private void RefreshSelectedLabel()
+        {
+            if (_shownIndex >= 0 && _shownIndex < _sourceList.Items.Count)
+            {
+                _suspend = true;
+                _sourceList.Items[_shownIndex] = Label(_sources[_shownIndex]);
+                _suspend = false;
+            }
+        }
+
+        private static string Label(ImportSourceDefinition source) =>
+            source.IsMaster ? $"{source.Name}   [master]" : source.Name;
+
+        // --- editor <-> definition ----------------------------------------
+
+        private void OnSourceSelectionChanged()
+        {
+            if (_suspend)
+            {
+                return;
+            }
+
+            CommitShownSource();
+            _shownIndex = _sourceList.SelectedIndex;
+            LoadShownSource();
+        }
+
+        private void OnMasterToggled()
+        {
+            if (_suspend || _shownIndex < 0 || _shownIndex >= _sources.Count)
+            {
+                return;
+            }
+
+            ImportSourceDefinition source = _sources[_shownIndex];
+            source.IsMaster = _isMaster.Checked;
+            if (_isMaster.Checked)
+            {
+                foreach (ImportSourceDefinition other in _sources.Where(s => !ReferenceEquals(s, source)))
+                {
+                    other.IsMaster = false;
+                }
+            }
+
+            _suspend = true;
+            for (int i = 0; i < _sources.Count; i++)
+            {
+                _sourceList.Items[i] = Label(_sources[i]);
+            }
+
+            _suspend = false;
+
+            LoadShownSource(); // the Sensor Name row appears / disappears with master
+        }
+
+        private void SetEditorEnabled(bool enabled)
+        {
+            _isMaster.Enabled = _sheetName.Enabled = _headerRow.Enabled = _keyColumn.Enabled = _mapping.Enabled = enabled;
+        }
+
+        private void LoadShownSource()
+        {
+            _suspend = true;
+            _mapping.Rows.Clear();
+
+            if (_shownIndex < 0 || _shownIndex >= _sources.Count)
+            {
+                SetEditorEnabled(false);
+                _suspend = false;
+                return;
+            }
+
+            SetEditorEnabled(true);
+            ImportSourceDefinition source = _sources[_shownIndex];
+
             _isMaster.Checked = source.IsMaster;
             _sheetName.Text = source.SheetName ?? string.Empty;
             _headerRow.Text = source.HeaderRowIndex.HasValue ? (source.HeaderRowIndex.Value + 1).ToString() : string.Empty;
             _keyColumn.Text = source.UniversalIdLocator;
+            _sheetName.Enabled = source.Kind == SignalSourceKind.Workbook;
+            _headerRow.Enabled = source.Kind != SignalSourceKind.Access;
 
             foreach (SignalField field in SignalField.All)
             {
@@ -255,44 +380,35 @@ namespace ToleranceTool.UI.Import
                     continue;
                 }
 
-                FieldBinding binding = source.Binding(field.Name) ?? new FieldBinding(field.Name, string.Empty, field.RequiredByDefault);
+                FieldBinding binding = source.Binding(field.Name)
+                    ?? new FieldBinding(field.Name, string.Empty, field.RequiredByDefault);
                 int row = _mapping.Rows.Add(field.Name, binding.Locator, binding.Required);
                 _mapping.Rows[row].Tag = field.Name;
             }
 
-            _loadingSource = false;
+            _suspend = false;
         }
 
-        private void WriteBackSource()
+        /// <summary>Reads the editor controls into the definition currently shown. Safe to call any time.</summary>
+        private void CommitShownSource()
         {
-            if (_loadingSource)
+            if (_suspend || _shownIndex < 0 || _shownIndex >= _sources.Count)
             {
                 return;
             }
 
-            ImportSourceDefinition? source = Current;
-            if (source == null)
-            {
-                return;
-            }
+            ImportSourceDefinition source = _sources[_shownIndex];
 
-            bool wasMaster = source.IsMaster;
+            _mapping.EndEdit();
+
             source.IsMaster = _isMaster.Checked;
-            if (source.IsMaster && !wasMaster)
-            {
-                foreach (ImportSourceDefinition other in _sources.Where(s => !ReferenceEquals(s, source)))
-                {
-                    other.IsMaster = false;
-                }
-            }
-
             source.SheetName = string.IsNullOrWhiteSpace(_sheetName.Text) ? null : _sheetName.Text.Trim();
             source.HeaderRowIndex = int.TryParse(_headerRow.Text.Trim(), out int header) && header >= 1 ? header - 1 : (int?)null;
             source.UniversalIdLocator = _keyColumn.Text.Trim();
 
             foreach (DataGridViewRow gridRow in _mapping.Rows)
             {
-                if (gridRow.Tag is not string fieldName)
+                if (!(gridRow.Tag is string fieldName))
                 {
                     continue;
                 }
@@ -308,23 +424,15 @@ namespace ToleranceTool.UI.Import
                 binding.Required = gridRow.Cells["Required"].Value is bool b && b;
             }
 
-            int selected = _sourceList.SelectedIndex;
-            RefreshSourceListLabelsOnly();
-            _sourceList.SelectedIndex = selected;
-        }
-
-        private void RefreshSourceListLabelsOnly()
-        {
-            for (int i = 0; i < _sources.Count && i < _sourceList.Items.Count; i++)
-            {
-                _sourceList.Items[i] = _sources[i].IsMaster ? $"{_sources[i].Name}   [master]" : _sources[i].Name;
-            }
+            RefreshSelectedLabel();
         }
 
         // --- preview -------------------------------------------------------
 
         private void BuildPreview()
         {
+            CommitShownSource();
+
             _issues.Items.Clear();
             _preview.Rows.Clear();
             _preview.Columns.Clear();
@@ -338,7 +446,6 @@ namespace ToleranceTool.UI.Import
             var builder = new SignalSetBuilder();
             foreach (ImportSourceDefinition definition in _sources)
             {
-                var bindings = definition.Fields.Where(b => !string.IsNullOrWhiteSpace(b.Locator)).ToList();
                 var effective = new ImportSourceDefinition(definition.Name, definition.Kind, definition.Location)
                 {
                     SheetName = definition.SheetName,
@@ -348,12 +455,12 @@ namespace ToleranceTool.UI.Import
                     IsMaster = definition.IsMaster,
                     Query = definition.Query,
                 };
-                effective.Fields.AddRange(bindings);
+                effective.Fields.AddRange(definition.Fields.Where(b => !string.IsNullOrWhiteSpace(b.Locator)));
 
                 try
                 {
                     ISignalSource source = effective.Kind == SignalSourceKind.Access
-                        ? new ToleranceTool.Import.Access.AccessSignalSource(effective)
+                        ? new AccessSignalSource(effective)
                         : FileSignalSource.Open(effective);
                     builder.Add(source, effective);
                 }
@@ -374,18 +481,20 @@ namespace ToleranceTool.UI.Import
 
             foreach (FieldGap gap in result.Value.AllGaps)
             {
-                _issues.Items.Add("Incomplete — " + gap);
-            }
-
-            if (_issues.Items.Count == 0)
-            {
-                _issues.Items.Add(result.Value.IsReady
-                    ? $"Ready: {result.Value.Count} signal(s), all complete."
-                    : "No issues, but the set is empty.");
+                _issues.Items.Add("Dropped — " + gap);
             }
 
             FillPreviewGrid(result.Value);
-            _status.Text = $"{result.Value.Count} signal(s) — {result.Value.Complete.Count()} complete";
+
+            int complete = result.Value.Complete.Count();
+            int dropped = result.Value.Count - complete;
+            _status.Text = dropped == 0
+                ? $"{complete} signal(s), all complete."
+                : $"{complete} complete, {dropped} dropped (missing a required field — see Issues).";
+            if (_issues.Items.Count == 0)
+            {
+                _issues.Items.Add(_status.Text);
+            }
         }
 
         private void FillPreviewGrid(ResolvedSignalSet set)
@@ -393,20 +502,22 @@ namespace ToleranceTool.UI.Import
             string[] columns =
             {
                 "Universal ID", "Sensor Name", "Conv.", "Scale", "Signal", "Module",
-                "Raw Lo", "Raw Hi", "EU Lo", "EU Hi", "EU Lo SI", "EU Hi SI", "Complete",
+                "Raw Lo", "Raw Hi", "EU Lo", "EU Hi", "EU Lo SI", "EU Hi SI", "Complete", "Missing",
             };
             foreach (string column in columns)
             {
                 _preview.Columns.Add(column, column);
             }
 
-            foreach (ResolvedSignal signal in set.Signals)
+            IEnumerable<ResolvedSignal> rows = _hideIncomplete.Checked ? set.Complete : set.Signals;
+            foreach (ResolvedSignal signal in rows.OrderBy(s => s.IsComplete ? 0 : 1))
             {
                 SignalConfig c = signal.Config;
+                string missing = signal.IsComplete ? string.Empty : string.Join(", ", signal.Gaps.Select(g => g.Field));
                 int row = _preview.Rows.Add(
                     c.UniversalId, c.SensorName, c.ConversionSense, c.ScaleType, c.SignalType, c.ModuleType,
                     Num(c.RawLow), Num(c.RawHigh), Num(c.EuLow), Num(c.EuHigh), Num(c.EuLowSi), Num(c.EuHighSi),
-                    signal.IsComplete ? "yes" : "no");
+                    signal.IsComplete ? "yes" : "no", missing);
 
                 if (!signal.IsComplete)
                 {
@@ -417,14 +528,20 @@ namespace ToleranceTool.UI.Import
 
         private void SaveSignalSet()
         {
-            if (ResultSet.Count == 0)
+            if (ResultSet.Complete.Count() == 0)
             {
-                _issues.Items.Add("Build the preview before saving.");
+                _issues.Items.Add("Build the preview first (and make sure at least one signal is complete).");
                 return;
             }
 
-            string defaultPath = System.IO.Path.Combine(ConfigurationPaths.RootFolder, "last-signal-set.xml");
-            using (var save = new SaveFileDialog { Filter = "Signal set (*.xml)|*.xml", FileName = System.IO.Path.GetFileName(defaultPath), InitialDirectory = ConfigurationPaths.RootFolder })
+            string defaultPath = Path.Combine(ConfigurationPaths.RootFolder, "last-signal-set.xml");
+            Directory.CreateDirectory(ConfigurationPaths.RootFolder);
+            using (var save = new SaveFileDialog
+            {
+                Filter = "Signal set (*.xml)|*.xml",
+                FileName = Path.GetFileName(defaultPath),
+                InitialDirectory = ConfigurationPaths.RootFolder,
+            })
             {
                 if (save.ShowDialog(this) != DialogResult.OK)
                 {
@@ -444,7 +561,7 @@ namespace ToleranceTool.UI.Import
 
         private static Button Button(string text, Action onClick)
         {
-            var button = new Button { Text = text, AutoSize = true };
+            var button = new Button { Text = text, AutoSize = true, Margin = new Padding(3) };
             button.Click += (s, e) => onClick();
             return button;
         }
