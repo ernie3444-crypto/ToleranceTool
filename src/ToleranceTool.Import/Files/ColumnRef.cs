@@ -47,7 +47,7 @@ namespace ToleranceTool.Import.Files
         }
 
         /// <summary>Accepts a column letter or a 1-based number; returns the zero-based index.</summary>
-        public static bool TryParse(string reference, out int index)
+        public static bool TryParse(string? reference, out int index)
         {
             index = -1;
             if (string.IsNullOrWhiteSpace(reference))

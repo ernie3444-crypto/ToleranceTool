@@ -1,0 +1,15 @@
+Unique ID,Parameter,Parameter Value,Metric Parameter Value
+53-501-52,Sensor Name,FT-201,
+53-501-52,Conversion Sense,Direct,
+53-501-52,Scale Type,SquareRoot,
+53-501-52,Signal Type,4-20mA,
+53-501-52,Module Type,AI-871,
+53-501-52,EU_Low,0,0
+53-501-52,EU_High,250,0.01577
+53-501-53,Sensor Name,PT-330,
+53-501-53,Conversion Sense,Direct,
+53-501-53,Scale Type,Linear,
+53-501-53,Signal Type,4-20mA,
+53-501-53,Module Type,AI-871,
+53-501-53,EU_Low,0,0
+53-501-53,EU_High,100,689.48

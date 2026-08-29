@@ -15,8 +15,15 @@ namespace ToleranceTool.Import
         /// <summary>One signal per row, fields in columns. The launch format.</summary>
         RowPerSignal = 0,
 
-        /// <summary>One signal per column, fields in rows (key/value sheets). P7.</summary>
+        /// <summary>One signal per column, field labels down a column (key/value sheets).</summary>
         ColumnPerSignal = 1,
+
+        /// <summary>
+        /// One row per parameter: a key column, a parameter-name column, a value
+        /// column, and an optional metric (SI) value column. Several rows build one
+        /// signal, grouped by the key.
+        /// </summary>
+        ParameterPerRow = 2,
     }
 
     /// <summary>How one source contributes to the join: where its key is, and which field sits in which column.</summary>
@@ -74,6 +81,17 @@ namespace ToleranceTool.Import
 
         /// <summary>The SQL that produces the result set for an <see cref="SignalSourceKind.Access"/> source.</summary>
         public string? Query { get; set; }
+
+        // --- ParameterPerRow layout only ---
+
+        /// <summary>Column holding the parameter name on each row.</summary>
+        public string? ParameterNameLocator { get; set; }
+
+        /// <summary>Column holding the parameter value (display / English units) on each row.</summary>
+        public string? ParameterValueLocator { get; set; }
+
+        /// <summary>Optional column holding the metric (SI) value on each row.</summary>
+        public string? ParameterMetricLocator { get; set; }
 
         /// <summary>Exactly one source in a set is the master (carries Sensor Name, sets the signal count).</summary>
         public bool IsMaster { get; set; }

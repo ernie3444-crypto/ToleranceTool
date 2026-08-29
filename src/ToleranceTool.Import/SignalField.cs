@@ -72,5 +72,19 @@ namespace ToleranceTool.Import
 
             return null;
         }
+
+        /// <summary>
+        /// The SI counterpart of an English EU-range field, for the metric-value
+        /// column of a parameter-per-row source. Null when the field has no SI pair.
+        /// </summary>
+        public static string? SiCounterpart(string fieldName)
+        {
+            switch (fieldName)
+            {
+                case EuLow: return EuLowSi;
+                case EuHigh: return EuHighSi;
+                default: return null;
+            }
+        }
     }
 }

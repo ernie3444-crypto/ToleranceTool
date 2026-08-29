@@ -49,6 +49,10 @@ namespace ToleranceTool.Import
                     element.Add(new XAttribute("query", source.Query));
                 }
 
+                AddIfSet(element, "parameterNameLocator", source.ParameterNameLocator);
+                AddIfSet(element, "parameterValueLocator", source.ParameterValueLocator);
+                AddIfSet(element, "parameterMetricLocator", source.ParameterMetricLocator);
+
                 foreach (FieldBinding binding in source.Fields)
                 {
                     element.Add(new XElement(
@@ -62,6 +66,14 @@ namespace ToleranceTool.Import
             }
 
             new XDocument(new XDeclaration("1.0", "utf-8", null), root).Save(path);
+        }
+
+        private static void AddIfSet(XElement element, string name, string? value)
+        {
+            if (!string.IsNullOrEmpty(value))
+            {
+                element.Add(new XAttribute(name, value));
+            }
         }
 
         public static List<ImportSourceDefinition> Load(string path)
@@ -98,6 +110,9 @@ namespace ToleranceTool.Import
                     UniversalIdLocator = (string?)element.Attribute("universalIdLocator") ?? "A",
                     SheetName = (string?)element.Attribute("sheet"),
                     Query = (string?)element.Attribute("query"),
+                    ParameterNameLocator = (string?)element.Attribute("parameterNameLocator"),
+                    ParameterValueLocator = (string?)element.Attribute("parameterValueLocator"),
+                    ParameterMetricLocator = (string?)element.Attribute("parameterMetricLocator"),
                 };
 
                 if (Enum.TryParse((string?)element.Attribute("orientation"), out SignalDataOrientation orientation))

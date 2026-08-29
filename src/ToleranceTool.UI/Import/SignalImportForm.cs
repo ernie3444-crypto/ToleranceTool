@@ -22,9 +22,13 @@ namespace ToleranceTool.UI.Import
 
         private readonly ListBox _sourceList = new ListBox { Dock = DockStyle.Fill, IntegralHeight = false };
         private readonly CheckBox _isMaster = new CheckBox { Text = "This source is the master (links Sensor Name → Universal ID)", AutoSize = true, Margin = new Padding(3, 6, 3, 6) };
+        private readonly ComboBox _orientation = new ComboBox { DropDownStyle = ComboBoxStyle.DropDownList, Width = 180, Anchor = AnchorStyles.Left };
         private readonly TextBox _sheetName = new TextBox { Width = 180, Anchor = AnchorStyles.Left };
         private readonly TextBox _headerRow = new TextBox { Width = 60, Text = "1", Anchor = AnchorStyles.Left };
         private readonly TextBox _keyColumn = new TextBox { Width = 120, Text = "A", Anchor = AnchorStyles.Left };
+        private readonly TextBox _paramNameCol = new TextBox { Width = 120, Anchor = AnchorStyles.Left };
+        private readonly TextBox _paramValueCol = new TextBox { Width = 120, Anchor = AnchorStyles.Left };
+        private readonly TextBox _paramMetricCol = new TextBox { Width = 120, Anchor = AnchorStyles.Left };
 
         private readonly DataGridView _mapping = new DataGridView
         {
@@ -65,11 +69,23 @@ namespace ToleranceTool.UI.Import
 
             BuildMappingColumns();
 
+            _orientation.Items.AddRange(new object[]
+            {
+                SignalDataOrientation.RowPerSignal,
+                SignalDataOrientation.ColumnPerSignal,
+                SignalDataOrientation.ParameterPerRow,
+            });
+            _orientation.SelectedIndex = 0;
+
             _sourceList.SelectedIndexChanged += (s, e) => OnSourceSelectionChanged();
             _isMaster.CheckedChanged += (s, e) => OnMasterToggled();
+            _orientation.SelectedIndexChanged += (s, e) => { if (!_suspend) { CommitShownSource(); LoadShownSource(); } };
             _sheetName.TextChanged += (s, e) => CommitShownSource();
             _headerRow.TextChanged += (s, e) => CommitShownSource();
             _keyColumn.TextChanged += (s, e) => CommitShownSource();
+            _paramNameCol.TextChanged += (s, e) => CommitShownSource();
+            _paramValueCol.TextChanged += (s, e) => CommitShownSource();
+            _paramMetricCol.TextChanged += (s, e) => CommitShownSource();
             _hideIncomplete.CheckedChanged += (s, e) => { if (_preview.Columns.Count > 0) BuildPreview(); };
 
             Controls.Add(BuildBody());
@@ -174,7 +190,16 @@ namespace ToleranceTool.UI.Import
             // right: field mapping editor for the selected source
             var mapPanel = new Panel { Dock = DockStyle.Fill };
             mapPanel.Controls.Add(_mapping);                    // added first -> fills remaining space
-            mapPanel.Controls.Add(BuildSettingsPanel());        // added second -> docks above the grid
+            mapPanel.Controls.Add(new Label
+            {
+                Text = "Row per signal: give each field its column.   Column per signal: give each field its row number.\n" +
+                       "Parameter per row: give each field the text that identifies it in the Parameter-name column; SI range values come from the metric column.",
+                Dock = DockStyle.Top,
+                AutoSize = true,
+                ForeColor = Color.DimGray,
+                Padding = new Padding(4, 2, 4, 4),
+            });
+            mapPanel.Controls.Add(BuildSettingsPanel());        // docks above the grid
             mapPanel.Controls.Add(new Label { Text = "Field mapping for selected source", Dock = DockStyle.Top, Height = 20, Font = Bold() });
             top.Panel2.Controls.Add(mapPanel);
 
@@ -216,16 +241,22 @@ namespace ToleranceTool.UI.Import
             table.Controls.Add(_isMaster, 0, 0);
             table.SetColumnSpan(_isMaster, 2);
 
-            void Row(string label, Control control, int row)
+            int r = 1;
+            void Row(string label, Control control)
             {
-                table.Controls.Add(new Label { Text = label, AutoSize = true, Anchor = AnchorStyles.Left, Margin = new Padding(3, 7, 12, 3) }, 0, row);
-                table.Controls.Add(control, 1, row);
+                table.Controls.Add(new Label { Text = label, AutoSize = true, Anchor = AnchorStyles.Left, Margin = new Padding(3, 7, 12, 3) }, 0, r);
+                table.Controls.Add(control, 1, r);
                 control.Margin = new Padding(3, 4, 3, 4);
+                r++;
             }
 
-            Row("Worksheet (xlsx only)", _sheetName, 1);
-            Row("Header row (1-based)", _headerRow, 2);
-            Row("Universal ID column", _keyColumn, 3);
+            Row("Layout", _orientation);
+            Row("Worksheet (xlsx only)", _sheetName);
+            Row("Header row (1-based)", _headerRow);
+            Row("Unique ID column", _keyColumn);
+            Row("Parameter-name column", _paramNameCol);
+            Row("Parameter-value column", _paramValueCol);
+            Row("Metric-value column (SI, optional)", _paramMetricCol);
             return table;
         }
 
@@ -390,7 +421,9 @@ namespace ToleranceTool.UI.Import
 
         private void SetEditorEnabled(bool enabled)
         {
-            _isMaster.Enabled = _sheetName.Enabled = _headerRow.Enabled = _keyColumn.Enabled = _mapping.Enabled = enabled;
+            _isMaster.Enabled = _orientation.Enabled = _sheetName.Enabled = _headerRow.Enabled =
+                _keyColumn.Enabled = _paramNameCol.Enabled = _paramValueCol.Enabled = _paramMetricCol.Enabled =
+                _mapping.Enabled = enabled;
         }
 
         private void LoadShownSource()
@@ -407,17 +440,33 @@ namespace ToleranceTool.UI.Import
 
             SetEditorEnabled(true);
             ImportSourceDefinition source = _sources[_shownIndex];
+            bool eav = source.Orientation == SignalDataOrientation.ParameterPerRow;
 
             _isMaster.Checked = source.IsMaster;
+            _orientation.SelectedItem = source.Orientation;
             _sheetName.Text = source.SheetName ?? string.Empty;
             _headerRow.Text = source.HeaderRowIndex.HasValue ? (source.HeaderRowIndex.Value + 1).ToString() : string.Empty;
             _keyColumn.Text = source.UniversalIdLocator;
+            _paramNameCol.Text = source.ParameterNameLocator ?? string.Empty;
+            _paramValueCol.Text = source.ParameterValueLocator ?? string.Empty;
+            _paramMetricCol.Text = source.ParameterMetricLocator ?? string.Empty;
+
+            _orientation.Enabled = source.Kind != SignalSourceKind.Access;
             _sheetName.Enabled = source.Kind == SignalSourceKind.Workbook;
             _headerRow.Enabled = source.Kind != SignalSourceKind.Access;
+            _paramNameCol.Enabled = _paramValueCol.Enabled = _paramMetricCol.Enabled = eav;
+            _mapping.Columns["Column"].HeaderText = eav ? "Parameter name" : "Column / number";
 
             foreach (SignalField field in SignalField.All)
             {
                 if (field.MasterOnly && !source.IsMaster)
+                {
+                    continue;
+                }
+
+                // In the parameter-per-row layout the SI-range fields are filled from
+                // the metric column, not mapped directly.
+                if (eav && (field.Name == SignalField.EuLowSi || field.Name == SignalField.EuHighSi))
                 {
                     continue;
                 }
@@ -444,9 +493,17 @@ namespace ToleranceTool.UI.Import
             _mapping.EndEdit();
 
             source.IsMaster = _isMaster.Checked;
+            if (_orientation.SelectedItem is SignalDataOrientation orientation)
+            {
+                source.Orientation = orientation;
+            }
+
             source.SheetName = string.IsNullOrWhiteSpace(_sheetName.Text) ? null : _sheetName.Text.Trim();
             source.HeaderRowIndex = int.TryParse(_headerRow.Text.Trim(), out int header) && header >= 1 ? header - 1 : (int?)null;
             source.UniversalIdLocator = _keyColumn.Text.Trim();
+            source.ParameterNameLocator = Blank(_paramNameCol.Text);
+            source.ParameterValueLocator = Blank(_paramValueCol.Text);
+            source.ParameterMetricLocator = Blank(_paramMetricCol.Text);
 
             foreach (DataGridViewRow gridRow in _mapping.Rows)
             {
@@ -496,6 +553,9 @@ namespace ToleranceTool.UI.Import
                     UniversalIdLocator = definition.UniversalIdLocator,
                     IsMaster = definition.IsMaster,
                     Query = definition.Query,
+                    ParameterNameLocator = definition.ParameterNameLocator,
+                    ParameterValueLocator = definition.ParameterValueLocator,
+                    ParameterMetricLocator = definition.ParameterMetricLocator,
                 };
                 effective.Fields.AddRange(definition.Fields.Where(b => !string.IsNullOrWhiteSpace(b.Locator)));
 
@@ -621,6 +681,12 @@ namespace ToleranceTool.UI.Import
         }
 
         // --- helpers -----------------------------------------------------
+
+        private static string? Blank(string? text)
+        {
+            string trimmed = text?.Trim() ?? string.Empty;
+            return trimmed.Length == 0 ? null : trimmed;
+        }
 
         private static string Num(double value) => value == 0 ? "—" : value.ToString("0.######");
 

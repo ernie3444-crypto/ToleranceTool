@@ -80,10 +80,18 @@ value and see each term resolved, the ± band, and which path was used.
    query). Each file is a *source*.
 2. Mark exactly one source as the **master** — the one that links Sensor Name to
    Universal ID. Its row count sets how many signals exist.
-3. For each source, set the **Universal ID column** and map the fields you have to
-   their columns (a column letter, or a 1-based number). Column-oriented / key-value
-   sheets are supported — set the source's orientation and give row numbers as
-   locators.
+3. For each source, choose its **Layout** and map your fields:
+   - **Row per signal** (the usual) — one signal per row; give each field its
+     **column** (a letter or a 1-based number).
+   - **Column per signal** — one signal per column, field labels down a column;
+     give each field its **row number**.
+   - **Parameter per row** — several rows per signal: a Unique ID column, a
+     parameter-name column, a value column, and an optional metric (SI) value
+     column. Give each field the **text that identifies it** in the parameter-name
+     column (e.g. `EU_High`). For range fields, the SI value is read from the metric
+     column automatically. Rows whose parameter you did not map are ignored.
+
+   Always set the **Unique ID column**. Parameters/rows you do not map are skipped.
 4. **Build preview.** Every signal appears with a **Complete** flag and a **Missing**
    column naming any required field that did not resolve. Incomplete signals are
    excluded from the saved set. Use **Hide incomplete** to focus on the usable ones.
