@@ -56,15 +56,25 @@
                 <DataGrid ItemsSource="{Binding Selected.Entries}">
                     <DataGrid.Columns>
                         <DataGridTextColumn Header="System ID / pattern" Binding="{Binding SystemId}" Width="*" />
-                        <DataGridComboBoxColumn Header="Target"
-                                                SelectedItemBinding="{Binding TargetKind}"
-                                                ItemsSource="{Binding DataContext.TargetKinds, RelativeSource={RelativeSource AncestorType=Window}}"
-                                                Width="110" />
+                        <DataGridTemplateColumn Header="Target" Width="120">
+                            <DataGridTemplateColumn.CellTemplate>
+                                <DataTemplate>
+                                    <ComboBox Margin="1" BorderThickness="0" Background="Transparent"
+                                              ItemsSource="{Binding DataContext.TargetKinds, RelativeSource={RelativeSource AncestorType=DataGrid}}"
+                                              SelectedItem="{Binding TargetKind, UpdateSourceTrigger=PropertyChanged}" />
+                                </DataTemplate>
+                            </DataGridTemplateColumn.CellTemplate>
+                        </DataGridTemplateColumn>
                         <DataGridTextColumn Header="Target value" Binding="{Binding Target}" Width="*" />
-                        <DataGridComboBoxColumn Header="Match"
-                                                SelectedItemBinding="{Binding Match}"
-                                                ItemsSource="{Binding DataContext.MatchModes, RelativeSource={RelativeSource AncestorType=Window}}"
-                                                Width="90" />
+                        <DataGridTemplateColumn Header="Match" Width="100">
+                            <DataGridTemplateColumn.CellTemplate>
+                                <DataTemplate>
+                                    <ComboBox Margin="1" BorderThickness="0" Background="Transparent"
+                                              ItemsSource="{Binding DataContext.MatchModes, RelativeSource={RelativeSource AncestorType=DataGrid}}"
+                                              SelectedItem="{Binding Match, UpdateSourceTrigger=PropertyChanged}" />
+                                </DataTemplate>
+                            </DataGridTemplateColumn.CellTemplate>
+                        </DataGridTemplateColumn>
                     </DataGrid.Columns>
                 </DataGrid>
             </DockPanel>

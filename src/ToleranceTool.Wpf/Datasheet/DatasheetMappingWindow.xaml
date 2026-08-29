@@ -149,10 +149,15 @@
                             <DataGridTextColumn Header="System ID" Binding="{Binding SystemId}" IsReadOnly="True" Width="*" />
                             <DataGridTextColumn Header="Resolved by" Binding="{Binding Step}" IsReadOnly="True" Width="Auto" />
                             <DataGridTextColumn Header="Signal (Sensor Name)" Binding="{Binding SignalText}" IsReadOnly="True" Width="*" />
-                            <DataGridComboBoxColumn Header="Override → Universal ID"
-                                                    SelectedItemBinding="{Binding Override}"
-                                                    ItemsSource="{Binding DataContext.OverrideOptions, RelativeSource={RelativeSource AncestorType=Window}}"
-                                                    Width="1.2*" />
+                            <DataGridTemplateColumn Header="Override → Universal ID" Width="1.2*">
+                                <DataGridTemplateColumn.CellTemplate>
+                                    <DataTemplate>
+                                        <ComboBox Margin="1" BorderThickness="0" Background="Transparent"
+                                                  ItemsSource="{Binding DataContext.OverrideOptions, RelativeSource={RelativeSource AncestorType=DataGrid}}"
+                                                  SelectedItem="{Binding Override, UpdateSourceTrigger=PropertyChanged}" />
+                                    </DataTemplate>
+                                </DataGridTemplateColumn.CellTemplate>
+                            </DataGridTemplateColumn>
                         </DataGrid.Columns>
                     </DataGrid>
                 </DockPanel>
