@@ -58,15 +58,18 @@ the transfer expression), so the same code path handles linear and non-linear `f
 
 | Source | Supplies | Notes |
 |---|---|---|
-| **PMF file** | the input-channel catalogue: raw span, EU span, unit, scale, nominal value, per input `Signal Name` | tab-delimited CSV, one row per channel; see §4 |
+| **PMF file** | *only three things*: which signals are analog I/O (`SigType` = AI/AO), the exact `Signal Name`, and each channel's `init val` (nominal/power-on value) | tab-delimited CSV, one row per channel; see §4 |
+| **Signals master + signal-type registry** | each input channel's raw span, EU span, scale type, `signalType`/`moduleType` | the *existing* import pipeline — an input channel is resolved exactly like an output-sheet signal (Signal Name → alias ladder → Universal ID → `SignalConfig`) |
 | **Input sheet** | the *measured* value of each input at each test step | a sibling of the output datasheet; user maps it; see §5 |
 | **Output sheet** (today's datasheet) | the derived parameter's `Expected` and `Actual` | unchanged |
 | **Derived-parameter map** | which inputs feed each derived parameter, the transfer function, and any breakpoints | location **`[Q2]`** — see §6 |
 | **Tolerance library** | each input channel's *input* tolerance (via its `signalType` + `moduleType`), and the combine mode (RSS vs worst-case) | reuses the existing library |
 
-The PMF gives **structure and ranges**; the input sheet gives **values**; the
-derived-parameter map gives **how they combine**. None is sufficient alone, and the
-input sheet is allowed to be incomplete (see §7).
+The PMF only **flags the analog inputs and gives their nominal value**; the input
+channel's ranges, scale, and tolerance come from the same libraries the output-sheet
+signals use. The input sheet gives **measured values**; the derived-parameter map
+gives **how they combine**. None is sufficient alone, and the input sheet is allowed
+to be incomplete (see §7).
 
 ---
 
@@ -79,27 +82,28 @@ Tab-delimited CSV with a header row. One row per I/O channel.
 Keep rows where `SigType` is **`AI`** or **`AO`**. Drop `DI`, `DO`, `AOI`, and
 everything else.
 
-### 4.2 Column mapping
+### 4.2 Columns used
 
-| PMF column | Maps to | Notes |
-|---|---|---|
-| `Signal Name` | `InputChannel.Name` | join key — must match the input sheet's identity column exactly **`[Q1]`** |
-| `EU` | unit label | free-text unit string (e.g. `degF`, `psi`) |
-| `Min Engineering Unit` | `EuLow` | |
-| `Max Engineering Unit` | `EuHigh` | |
-| `min measured raw` | `RawLow` | already encodes 4–20 vs 1–5, so `V/C` is not needed |
-| `max measured raw` | `RawHigh` | |
-| `init val` | `InputChannel.NominalValue` | fallback when the input sheet omits this signal (§7) |
-| `customscale` | `InputChannel.ScaleType` | **`[Q4]`** — assumed to name a curve in the Scale Types library; blank ⇒ `Linear` |
-| `SigType` | row filter only | |
-| `Board`, `line`, `U/P`, `V/C`, `terminal conf`, `ext volt src`, `ext volt val` | **ignored** | `U/P` / `V/C` intentionally unused — ranges are taken from the EU / raw columns directly |
+**Only these three.** Every other PMF column is ignored — the input channel's ranges,
+unit, and scale come from the signals master / signal-type registry (§3), not the PMF.
+
+| PMF column | Use as |
+|---|---|
+| `SigType` | row filter (AI / AO) |
+| `Signal Name` | the channel key — matches the input sheet exactly, and resolves to a `SignalConfig` through the existing alias ladder **`[Q1]`** |
+| `init val` | the channel's nominal value — used as the fallback when the input sheet omits this signal (§7) and as the constant for a "known constant" input |
+
+Explicitly **not read**: `Board`, `line`, `EU`, `U/P`, `V/C`, `Min/Max Engineering
+Unit`, `min/max measured raw`, `terminal conf`, `customscale` / `ext volt src`,
+`ext volt val`.
 
 ### 4.3 Output
 
-The importer produces a set of `InputChannel` records keyed by `Signal Name`,
-persisted alongside the existing resolved signal set (e.g.
-`%APPDATA%\ToleranceTool\last-input-channels.xml`). It is a second importer feeding
-the same downstream model, analogous to today's "signals master" source.
+The importer produces, keyed by `Signal Name`: `{ isAnalogIo: true, nominalValue }`.
+Persisted alongside the resolved signal set (e.g.
+`%APPDATA%\ToleranceTool\pmf-channels.xml`). It marks which signals are analog input
+channels and supplies their nominal value; everything else about the channel is
+looked up from the normal signal pipeline.
 
 ---
 
@@ -108,8 +112,8 @@ the same downstream model, analogous to today's "signals master" source.
 Structurally a **variant of `DatasheetMapping`**. It reuses:
 
 - orientation (row-per-case / column-per-case) and the transpose path
-- the **System ID** column mapping (user-selected) — its values match the PMF
-  `Signal Name` **`[Q1]`**
+- the **System ID** column mapping (user-selected) — its values are the signal
+  names, matched to the PMF `Signal Name` and resolved through the alias ladder **`[Q1]`**
 - the per-row unit column **`[Q5]`** (assumed identical semantics to the output sheet)
 - the repeated-column-group logic for step columns
 
@@ -137,7 +141,7 @@ Per derived parameter we need:
 derivedSignalType           # key, matched like today's signalType/moduleType
 inputs:                     # ordered
   - role:      "process"    # a name used in the transfer expression
-    signalName: "TT-101"    # resolves to a PMF InputChannel + input-sheet readings
+    signalName: "TT-101"    # -> SignalConfig (range/scale/tol) + PMF init val + input-sheet readings
   - role:      "coldjunction"
     signalName: "TT-101CJ"
 transfer:    "process + (coldjunction - 0)"     # expression over the roles
@@ -164,8 +168,8 @@ pieces:                     # optional, for piecewise signals
 
 ## 7. Missing-input policy
 
-The input sheet will not always carry every input the PMF lists. Resolution order
-per input, per step:
+The input sheet will not always carry every input a derived parameter needs.
+Resolution order per input, per step:
 
 1. measured value from the input sheet (row matched by `Signal Name`, value at the
    step, interpreted per the sheet's EU/raw toggle and combo rule)
@@ -186,8 +190,9 @@ output row → System ID → resolve → derived parameter
                                      │
                         derived-parameter map → inputs[] + transfer + pieces
                                      │
-   for each input:
-     PMF InputChannel      → raw span, EU span, scale, init val
+   for each input (by signalName):
+     SignalConfig          → raw span, EU span, scale, signalType/moduleType
+     PMF channel           → init val (nominal)
      input sheet @ step N   → measured raw (or EU); else init val; else FLAG
      input tolerance        → tolerance library (input's signalType/moduleType,
                               applied to its raw span)
@@ -220,8 +225,8 @@ only when the derived-parameter map has an entry for it.
 
 ## 10. Suggested phasing
 
-1. **PMF importer** → `InputChannel` set (§4). Standalone, testable, no engine
-   changes.
+1. **PMF importer** → `{ Signal Name → (isAnalogIo, init val) }` (§4). Standalone,
+   testable, no engine changes.
 2. **Input-sheet mapping** (§5) as a `DatasheetMapping` variant + persistence.
 3. **Derived-parameter map** schema (§6) + loader + validation.
 4. **Engine**: generic finite-difference propagation through `transfer`, per-input
@@ -237,16 +242,14 @@ behaviour with zero regression risk.
 
 ## 11. Open questions
 
-- **`[Q1]`** Does the input sheet's mapped identity ("System ID") column contain
-  values equal to the PMF `Signal Name`? And does the derived-parameter map key its
-  inputs on `Signal Name` or on Universal ID?
+- **`[Q1]`** The input sheet's mapped identity column and the PMF `Signal Name` hold
+  the same signal name (confirmed). Does the derived-parameter map (§6) reference its
+  inputs by that `Signal Name`, or by Universal ID?
 - **`[Q2]`** Where does the derived-parameter → {input list, transfer function,
   breakpoints} map live — tolerance library, a separate file, or a naming
   convention?
 - **`[Q3]`** Step alignment: output step *N* ↔ input step *N* by position, or by
   matching step-number labels?
-- **`[Q4]`** Is `customscale` the input's scale-type name, and do those names line
-  up with the Scale Types library? What does a blank mean — `Linear`?
 - **`[Q5]`** Is the input sheet's per-row unit column the same concept as the output
   sheet's per-row unit column?
 - **`[Q6]`** For the combo **(value, value)** pairs — does the per-sheet "EU or raw"
