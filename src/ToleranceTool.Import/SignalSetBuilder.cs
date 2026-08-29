@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
 using ToleranceTool.Configuration;
+using ToleranceTool.Configuration.SignalTypes;
 using ToleranceTool.Core.Signals;
 
 namespace ToleranceTool.Import
@@ -16,6 +17,17 @@ namespace ToleranceTool.Import
         private readonly List<ISignalSource> _sources = new List<ISignalSource>();
         private readonly Dictionary<string, ImportSourceDefinition> _definitions =
             new Dictionary<string, ImportSourceDefinition>(StringComparer.Ordinal);
+        private SignalTypeRegistry? _registry;
+
+        /// <summary>
+        /// Supplies raw ranges from the signal-type registry for signals whose
+        /// sources did not carry <see cref="SignalField.RawLow"/> / <see cref="SignalField.RawHigh"/>.
+        /// </summary>
+        public SignalSetBuilder WithRegistry(SignalTypeRegistry registry)
+        {
+            _registry = registry;
+            return this;
+        }
 
         public SignalSetBuilder Add(ISignalSource source, ImportSourceDefinition? definition = null)
         {
@@ -224,12 +236,29 @@ namespace ToleranceTool.Import
                 gaps.Add(new FieldGap(universalId, SignalField.ConversionSense, "no value in any source"));
             }
 
+            bool rawLowFromImport = Has(SignalField.RawLow, out _, out _);
+            bool rawHighFromImport = Has(SignalField.RawHigh, out _, out _);
             RequireNumber(SignalField.RawLow, v => config.RawLow = v, RequiredFor(SignalField.RawLow));
             RequireNumber(SignalField.RawHigh, v => config.RawHigh = v, RequiredFor(SignalField.RawHigh));
             RequireNumber(SignalField.EuLow, v => config.EuLow = v, RequiredFor(SignalField.EuLow));
             RequireNumber(SignalField.EuHigh, v => config.EuHigh = v, RequiredFor(SignalField.EuHigh));
             RequireNumber(SignalField.EuLowSi, v => config.EuLowSi = v, RequiredFor(SignalField.EuLowSi));
             RequireNumber(SignalField.EuHighSi, v => config.EuHighSi = v, RequiredFor(SignalField.EuHighSi));
+
+            // Fill the raw range from the signal-type registry when the import did not carry it.
+            if (!rawLowFromImport && !rawHighFromImport && config.SignalType.Length > 0)
+            {
+                if (_registry != null && _registry.TryGet(config.SignalType, out SignalTypeSpec spec))
+                {
+                    config.RawLow = spec.RawLow;
+                    config.RawHigh = spec.RawHigh;
+                }
+                else if (_registry != null)
+                {
+                    gaps.Add(new FieldGap(universalId, SignalField.RawLow,
+                        $"signal type \"{config.SignalType}\" is not in the signal-type registry and no raw range was imported"));
+                }
+            }
 
             return new ResolvedSignal(config, gaps);
         }

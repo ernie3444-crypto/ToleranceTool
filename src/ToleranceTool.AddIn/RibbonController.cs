@@ -5,6 +5,8 @@ using ExcelDna.Integration.CustomUI;
 using ToleranceTool.Excel;
 using ToleranceTool.UI;
 using ToleranceTool.UI.Import;
+using ToleranceTool.UI.Scales;
+using ToleranceTool.UI.SignalTypes;
 using ToleranceTool.UI.Tolerances;
 
 namespace ToleranceTool.AddIn
@@ -77,6 +79,14 @@ namespace ToleranceTool.AddIn
 
                 case "ttSignalConfiguration":
                     ShowDialog(new SignalImportForm());
+                    break;
+
+                case "ttScaleTypes":
+                    ShowDialog(new ScaleTypeEditorForm());
+                    break;
+
+                case "ttSignalTypes":
+                    ShowDialog(new SignalTypeEditorForm());
                     break;
 
                 default:

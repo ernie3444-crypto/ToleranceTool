@@ -44,6 +44,20 @@ namespace ToleranceTool.Core.Scales
         public bool Contains(string name) =>
             !string.IsNullOrWhiteSpace(name) && _curves.ContainsKey(name);
 
+        public IEnumerable<string> Names => _curves.Keys;
+
+        /// <summary>Builds a library from scale-type definitions (e.g. loaded from the scale-type library XML).</summary>
+        public static ScaleCurveLibrary From(IEnumerable<ScaleType> scaleTypes)
+        {
+            var library = new ScaleCurveLibrary();
+            foreach (ScaleType scaleType in scaleTypes)
+            {
+                library.Add(scaleType);
+            }
+
+            return library;
+        }
+
         /// <summary>The built-in curves: Linear, SquareRoot, and a 2-decade Logarithmic.</summary>
         public static ScaleCurveLibrary CreateDefault()
         {
