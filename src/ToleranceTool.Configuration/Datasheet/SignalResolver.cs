@@ -26,6 +26,9 @@ namespace ToleranceTool.Configuration.Datasheet
 
         /// <summary>Two or more candidates — never guessed.</summary>
         Ambiguous = 5,
+
+        /// <summary>The user marked this System ID to be skipped (override value = <see cref="SignalResolver.ExcludeMarker"/>).</summary>
+        Excluded = 6,
     }
 
     public sealed class SignalResolution
@@ -56,6 +59,9 @@ namespace ToleranceTool.Configuration.Datasheet
     /// </summary>
     public sealed class SignalResolver
     {
+        /// <summary>Override value that marks a System ID to be left alone by Apply / Check.</summary>
+        public const string ExcludeMarker = "(skip)";
+
         private readonly List<SignalConfig> _signals;
         private readonly AliasTableSet _aliases;
         private readonly IReadOnlyDictionary<string, string> _overrides;
@@ -91,10 +97,17 @@ namespace ToleranceTool.Configuration.Datasheet
         {
             string key = (systemId ?? string.Empty).Trim();
 
-            if (_overrides.TryGetValue(key, out string universalId)
-                && _byUniversalId.TryGetValue(universalId.Trim(), out SignalConfig overridden))
+            if (_overrides.TryGetValue(key, out string overrideValue))
             {
-                return new SignalResolution(key, ResolutionStep.Override, overridden, Array.Empty<string>());
+                if (string.Equals(overrideValue?.Trim(), ExcludeMarker, StringComparison.OrdinalIgnoreCase))
+                {
+                    return new SignalResolution(key, ResolutionStep.Excluded, null, Array.Empty<string>());
+                }
+
+                if (_byUniversalId.TryGetValue((overrideValue ?? string.Empty).Trim(), out SignalConfig overridden))
+                {
+                    return new SignalResolution(key, ResolutionStep.Override, overridden, Array.Empty<string>());
+                }
             }
 
             if (_bySensorName.TryGetValue(key, out SignalConfig exact))

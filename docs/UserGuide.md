@@ -145,7 +145,8 @@ Make the datasheet the **active worksheet**, then **Setup → Datasheet Mapping*
       System ID.
 
    Rows that do not resolve (pink) or match more than one signal are never guessed.
-   Correct them with the **Override → Universal ID** dropdown.
+   Correct them with the **Override → Universal ID** dropdown — or pick **`(skip)`**
+   in that dropdown to leave a row completely untouched by Apply / Check (grey row).
 7. **Save mapping** — stored per sheet.
 
 Then:

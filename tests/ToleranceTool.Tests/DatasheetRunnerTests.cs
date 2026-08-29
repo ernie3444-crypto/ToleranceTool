@@ -81,6 +81,37 @@ namespace ToleranceTool.Tests
         }
 
         [Fact]
+        public void Run_LeavesExcludedRowsUntouched()
+        {
+            (FakeDatasheet sheet, DatasheetMapping mapping, DatasheetRunner _) = Setup(new[]
+            {
+                new string?[] { "Signal", "Expected", "Tol" },
+                new string?[] { "FT-201", "125", "" },
+                new string?[] { "FT-201", "200", "" },
+            });
+            mapping.ResolutionOverrides["FT-201"] = SignalResolver.ExcludeMarker;
+
+            var signal = new SignalConfig
+            {
+                SensorName = "FT-201", ScaleType = ScaleTypeNames.Linear, SignalType = "4-20mA", ModuleType = "AI-871",
+                RawLow = 4, RawHigh = 20, EuLow = 0, EuHigh = 250, EuLowSi = 0, EuHighSi = 250,
+            };
+            var tolerances = new ToleranceLibrary();
+            var def = new ToleranceDefinition { SignalType = "4-20mA", ModuleType = "AI-871" };
+            def.Terms.Add(new ToleranceTerm { Kind = ToleranceTermKind.Percent, Value = 0.003, PercentBasis = PercentBasis.RawSpan });
+            tolerances.Add(def);
+            var runner = new DatasheetRunner(
+                new SignalResolver(new[] { signal }, AliasTableSet.Empty(), mapping.ResolutionOverrides), tolerances, ScaleCurveLibrary.CreateDefault());
+
+            DatasheetRunResult result = runner.Run(sheet, mapping, DatasheetRunMode.Apply);
+
+            Assert.Empty(sheet.Written);
+            Assert.Empty(sheet.Comments);
+            Assert.Equal(2, result.Excluded);
+            Assert.All(result.Rows, r => Assert.Equal(RowStatus.Skipped, r.Status));
+        }
+
+        [Fact]
         public void Run_ReportsUnresolvedRowsAndSkipsThem()
         {
             (FakeDatasheet sheet, DatasheetMapping mapping, DatasheetRunner runner) = Setup(new[]

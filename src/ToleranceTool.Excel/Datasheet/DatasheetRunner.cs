@@ -98,6 +98,19 @@ namespace ToleranceTool.Excel.Datasheet
 
                 SignalResolution resolution = _resolver.Resolve(systemId!);
 
+                if (resolution.Step == ResolutionStep.Excluded)
+                {
+                    result.Rows.Add(new RowOutcome
+                    {
+                        RowIndex = row,
+                        SystemId = systemId!,
+                        Resolution = resolution.Step,
+                        Status = RowStatus.Skipped,
+                        Note = "Excluded by the resolution review",
+                    });
+                    continue;
+                }
+
                 if (!resolution.IsResolved)
                 {
                     string note = resolution.Step == ResolutionStep.Ambiguous
@@ -281,6 +294,12 @@ namespace ToleranceTool.Excel.Datasheet
             for (int row = firstRow; row <= lastRow; row++)
             {
                 string systemId = systemIdColumn != null ? sheet.GetText(row, systemIdColumn.Value)?.Trim() ?? string.Empty : string.Empty;
+
+                if (systemId.Length > 0 && _resolver.Resolve(systemId).Step == ResolutionStep.Excluded)
+                {
+                    result.Rows.Add(new RowOutcome { RowIndex = row, SystemId = systemId, Status = RowStatus.Skipped, Note = "Excluded by the resolution review" });
+                    continue;
+                }
 
                 for (int b = 0; b < blocks; b++)
                 {

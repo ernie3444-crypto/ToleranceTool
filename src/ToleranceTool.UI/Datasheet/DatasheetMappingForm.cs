@@ -98,6 +98,13 @@ namespace ToleranceTool.UI.Datasheet
 
             var bottom = new SplitContainer { Dock = DockStyle.Fill, SplitterDistance = 600 };
             bottom.Panel1.Controls.Add(_review);
+            bottom.Panel1.Controls.Add(new Label
+            {
+                Text = $"Override → Universal ID: correct a wrong match, or choose \"{SignalResolver.ExcludeMarker}\" to leave that row untouched by Apply / Check.",
+                Dock = DockStyle.Top,
+                Height = 16,
+                ForeColor = Color.DimGray,
+            });
             bottom.Panel1.Controls.Add(new Label { Text = "Resolution review", Dock = DockStyle.Top, Height = 20, Font = Bold() });
             bottom.Panel2.Controls.Add(_report);
             bottom.Panel2.Controls.Add(new Label { Text = "Run report", Dock = DockStyle.Top, Height = 20, Font = Bold() });
@@ -365,6 +372,7 @@ namespace ToleranceTool.UI.Datasheet
             var overrideColumn = (DataGridViewComboBoxColumn)_review.Columns["Override"];
             overrideColumn.Items.Clear();
             overrideColumn.Items.Add(string.Empty);
+            overrideColumn.Items.Add(SignalResolver.ExcludeMarker);
             overrideColumn.Items.AddRange(universalIds);
 
             int last = mapping.LastDataRowIndex ?? sheet.LastRowIndex;
@@ -377,11 +385,21 @@ namespace ToleranceTool.UI.Datasheet
                 }
 
                 SignalResolution resolution = resolver.Resolve(systemId!);
-                string signalText = resolution.IsResolved
-                    ? $"{resolution.Signal!.SensorName}  ({resolution.Signal.SignalType} / {resolution.Signal.ModuleType})"
-                    : resolution.Step == ResolutionStep.Ambiguous
-                        ? "ambiguous: " + string.Join(", ", resolution.Candidates)
-                        : "unresolved";
+                string signalText;
+                switch (resolution.Step)
+                {
+                    case ResolutionStep.Excluded:
+                        signalText = "— excluded —";
+                        break;
+                    case ResolutionStep.Ambiguous:
+                        signalText = "ambiguous: " + string.Join(", ", resolution.Candidates);
+                        break;
+                    default:
+                        signalText = resolution.IsResolved
+                            ? $"{resolution.Signal!.SensorName}  ({resolution.Signal.SignalType} / {resolution.Signal.ModuleType})"
+                            : "unresolved";
+                        break;
+                }
 
                 int gridRow = _review.Rows.Add(row + 1, systemId, resolution.Step, signalText, string.Empty);
                 if (mapping.ResolutionOverrides.TryGetValue(systemId!, out string existingOverride))
@@ -389,7 +407,12 @@ namespace ToleranceTool.UI.Datasheet
                     _review.Rows[gridRow].Cells["Override"].Value = existingOverride;
                 }
 
-                if (!resolution.IsResolved)
+                if (resolution.Step == ResolutionStep.Excluded)
+                {
+                    _review.Rows[gridRow].DefaultCellStyle.BackColor = Color.Gainsboro;
+                    _review.Rows[gridRow].DefaultCellStyle.ForeColor = Color.DimGray;
+                }
+                else if (!resolution.IsResolved)
                 {
                     _review.Rows[gridRow].DefaultCellStyle.BackColor = Color.MistyRose;
                 }

@@ -80,6 +80,17 @@ namespace ToleranceTool.Tests
         }
 
         [Fact]
+        public void ExcludeMarker_MarksTheSystemIdAsExcluded()
+        {
+            var overrides = new Dictionary<string, string> { ["FT-201"] = SignalResolver.ExcludeMarker };
+            var resolver = new SignalResolver(Signals(), null, overrides);
+
+            SignalResolution result = resolver.Resolve("FT-201");
+            Assert.Equal(ResolutionStep.Excluded, result.Step);
+            Assert.False(result.IsResolved);
+        }
+
+        [Fact]
         public void Override_SitsAboveTheLadder()
         {
             var overrides = new Dictionary<string, string> { ["FT-201"] = "UT-1003" };

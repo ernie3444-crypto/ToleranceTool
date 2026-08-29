@@ -69,6 +69,9 @@ namespace ToleranceTool.Excel.Datasheet
             r.Status == RowStatus.NoTolerance ||
             r.Status == RowStatus.NotCalculable);
 
+        /// <summary>Rows the user marked to be left alone.</summary>
+        public int Excluded => Rows.Count(r => r.Status == RowStatus.Skipped);
+
         /// <summary>Set when the run could not start (bad mapping, missing columns).</summary>
         public List<string> SetupProblems { get; } = new List<string>();
 
@@ -88,11 +91,12 @@ namespace ToleranceTool.Excel.Datasheet
             }
 
             string points = TestPointsPerRow > 1 ? $" across {TestPointsPerRow} test points/row" : string.Empty;
+            string excluded = Excluded > 0 ? $", {Excluded} excluded" : string.Empty;
             string warn = Warnings.Count > 0 ? "  (" + string.Join("; ", Warnings) + ")" : string.Empty;
 
             return (Mode == DatasheetRunMode.Apply
-                ? $"{Written} written, {Extrapolated} extrapolated, {Uncheckable} skipped{points}."
-                : $"{Considered} checked, {Mismatched} mismatched, {Uncheckable} un-checkable{points}.") + warn;
+                ? $"{Written} written, {Extrapolated} extrapolated, {Uncheckable} not calculable{excluded}{points}."
+                : $"{Considered} checked, {Mismatched} mismatched, {Uncheckable} un-checkable{excluded}{points}.") + warn;
         }
     }
 }
