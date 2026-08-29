@@ -44,22 +44,37 @@ namespace ToleranceTool.Wpf.Datasheet
     public sealed class ReviewRowVm : ObservableObject
     {
         private string _override = string.Empty;
-        private readonly Action _onChanged;
+        private string _step = string.Empty;
+        private string _signalText = string.Empty;
+        private bool _resolved;
+        private bool _autoMatched;
+        private bool _excluded;
+        private readonly Action<ReviewRowVm> _onOverrideChanged;
+        private bool _quiet;
 
-        public ReviewRowVm(Action onChanged) => _onChanged = onChanged;
+        public ReviewRowVm(Action<ReviewRowVm> onOverrideChanged) => _onOverrideChanged = onOverrideChanged;
 
         public int RowNumber { get; set; }
         public string SystemId { get; set; } = string.Empty;
-        public string Step { get; set; } = string.Empty;
-        public string SignalText { get; set; } = string.Empty;
-        public bool Resolved { get; set; }
-        public bool AutoMatched { get; set; }
-        public bool Excluded { get; set; }
+
+        public string Step { get => _step; set => Set(ref _step, value); }
+        public string SignalText { get => _signalText; set => Set(ref _signalText, value); }
+        public bool Resolved { get => _resolved; set => Set(ref _resolved, value); }
+        public bool AutoMatched { get => _autoMatched; set => Set(ref _autoMatched, value); }
+        public bool Excluded { get => _excluded; set => Set(ref _excluded, value); }
 
         public string Override
         {
             get => _override;
-            set { if (Set(ref _override, value)) _onChanged(); }
+            set { if (Set(ref _override, value) && !_quiet) _onOverrideChanged(this); }
+        }
+
+        /// <summary>Set the override without triggering the per-row recompute (used while (re)building the list).</summary>
+        public void SetOverrideQuiet(string value)
+        {
+            _quiet = true;
+            try { Override = value ?? string.Empty; }
+            finally { _quiet = false; }
         }
     }
 
@@ -84,6 +99,7 @@ namespace ToleranceTool.Wpf.Datasheet
         private string _multiplier = "1";
         private string _report = string.Empty;
         private string _status = string.Empty;
+        private bool _refreshing;
 
         public DatasheetMappingViewModel(IDatasheet sheet, string? mappingXml = null, Action<string>? persist = null)
         {
@@ -316,6 +332,24 @@ namespace ToleranceTool.Wpf.Datasheet
 
         private void RefreshReview()
         {
+            if (_refreshing)
+            {
+                return;
+            }
+
+            _refreshing = true;
+            try
+            {
+                RefreshReviewCore();
+            }
+            finally
+            {
+                _refreshing = false;
+            }
+        }
+
+        private void RefreshReviewCore()
+        {
             DatasheetMapping mapping = ReadMapping();
             ReviewRows.Clear();
 
@@ -355,36 +389,46 @@ namespace ToleranceTool.Wpf.Datasheet
                     continue;
                 }
 
-                SignalResolution resolution = resolver.Resolve(systemId!);
-                string signalText = resolution.Step switch
-                {
-                    ResolutionStep.Excluded => "— excluded —",
-                    ResolutionStep.Ambiguous => "ambiguous: " + string.Join(", ", resolution.Candidates),
-                    _ => resolution.IsResolved
-                        ? $"{resolution.Signal!.SensorName}  ({resolution.Signal.SignalType} / {resolution.Signal.ModuleType})"
-                        : "unresolved",
-                };
-
-                var vm = new ReviewRowVm(RefreshReview)
+                var vm = new ReviewRowVm(OnOverrideChanged)
                 {
                     RowNumber = row + 1,
                     SystemId = systemId!,
-                    Step = resolution.Step.ToString(),
-                    SignalText = signalText,
-                    Resolved = resolution.IsResolved,
-                    AutoMatched = resolution.Step == ResolutionStep.AutoMatch,
-                    Excluded = resolution.Step == ResolutionStep.Excluded,
                 };
 
                 if (mapping.ResolutionOverrides.TryGetValue(systemId!, out string existing))
                 {
-                    vm.Override = existing;
+                    vm.SetOverrideQuiet(existing);
                 }
 
+                ApplyResolution(vm, resolver);
                 ReviewRows.Add(vm);
             }
 
             Status = $"{ReviewRows.Count} data row(s) reviewed.";
+        }
+
+        /// <summary>Recompute one row's resolution in place — no list churn, so a grid edit stays put.</summary>
+        private void OnOverrideChanged(ReviewRowVm row)
+        {
+            DatasheetMapping mapping = ReadMapping();
+            ApplyResolution(row, BuildResolver(mapping));
+        }
+
+        private static void ApplyResolution(ReviewRowVm row, SignalResolver resolver)
+        {
+            SignalResolution resolution = resolver.Resolve(row.SystemId);
+            row.Step = resolution.Step.ToString();
+            row.SignalText = resolution.Step switch
+            {
+                ResolutionStep.Excluded => "— excluded —",
+                ResolutionStep.Ambiguous => "ambiguous: " + string.Join(", ", resolution.Candidates),
+                _ => resolution.IsResolved
+                    ? $"{resolution.Signal!.SensorName}  ({resolution.Signal.SignalType} / {resolution.Signal.ModuleType})"
+                    : "unresolved",
+            };
+            row.Resolved = resolution.IsResolved;
+            row.AutoMatched = resolution.Step == ResolutionStep.AutoMatch;
+            row.Excluded = resolution.Step == ResolutionStep.Excluded;
         }
 
         private void Run(DatasheetRunMode mode)
