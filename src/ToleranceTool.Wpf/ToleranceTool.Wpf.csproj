@@ -1,0 +1,17 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <AssemblyName>ToleranceTool.Wpf</AssemblyName>
+    <RootNamespace>ToleranceTool.Wpf</RootNamespace>
+    <Description>WPF task panes and dialogs (proof of concept; replaces ToleranceTool.UI form by form).</Description>
+    <UseWPF>true</UseWPF>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\ToleranceTool.Core\ToleranceTool.Core.csproj" />
+    <ProjectReference Include="..\ToleranceTool.Configuration\ToleranceTool.Configuration.csproj" />
+    <ProjectReference Include="..\ToleranceTool.Import\ToleranceTool.Import.csproj" />
+    <ProjectReference Include="..\ToleranceTool.Excel\ToleranceTool.Excel.csproj" />
+  </ItemGroup>
+
+</Project>

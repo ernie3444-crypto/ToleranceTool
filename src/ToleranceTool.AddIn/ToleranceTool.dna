@@ -9,6 +9,7 @@
   <Reference Path="ToleranceTool.Import.dll" Pack="true" />
   <Reference Path="ToleranceTool.Excel.dll" Pack="true" />
   <Reference Path="ToleranceTool.UI.dll" Pack="true" />
+  <Reference Path="ToleranceTool.Wpf.dll" Pack="true" />
   <Reference Path="NCalc.dll" Pack="true" />
   <Reference Path="ExcelDataReader.dll" Pack="true" />
   <Reference Path="System.ValueTuple.dll" Pack="true" />

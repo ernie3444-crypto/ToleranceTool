@@ -1,3 +1,4 @@
+using System;
 using ExcelDna.Integration;
 
 namespace ToleranceTool.Excel
@@ -20,6 +21,22 @@ namespace ToleranceTool.Excel
             {
                 dynamic? sheet = Current.ActiveSheet;
                 return sheet == null ? string.Empty : (string)sheet.Name;
+            }
+        }
+
+        /// <summary>Excel's top-level window handle, for parenting dialogs. <see cref="IntPtr.Zero"/> if unavailable.</summary>
+        public static IntPtr WindowHandle
+        {
+            get
+            {
+                try
+                {
+                    return (IntPtr)ExcelDnaUtil.WindowHandle;
+                }
+                catch
+                {
+                    return IntPtr.Zero;
+                }
             }
         }
     }

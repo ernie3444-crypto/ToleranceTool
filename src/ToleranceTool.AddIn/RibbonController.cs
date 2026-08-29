@@ -148,7 +148,9 @@ namespace ToleranceTool.AddIn
                     break;
 
                 case "ttScaleTypes":
-                    ShowDialog(new ScaleTypeEditorForm());
+                    // Proof of concept: this editor is the WPF re-implementation.
+                    ToleranceTool.Wpf.WpfDialogs.ScaleTypeEditor(ExcelApplication.WindowHandle);
+                    RefreshStatus();
                     break;
 
                 case "ttSignalTypes":
