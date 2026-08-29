@@ -66,8 +66,14 @@ namespace ToleranceTool.Import
         /// <summary>Zero-based index of the header row (row-oriented) — data starts on the next row. Null = no header.</summary>
         public int? HeaderRowIndex { get; set; } = 0;
 
-        /// <summary>Where this source's Universal ID lives (column letter / number, or row number when column-oriented).</summary>
+        /// <summary>
+        /// Where this source's Universal ID lives: a column letter / number for a
+        /// file, or the result-set column name for an Access query.
+        /// </summary>
         public string UniversalIdLocator { get; set; } = "A";
+
+        /// <summary>The SQL that produces the result set for an <see cref="SignalSourceKind.Access"/> source.</summary>
+        public string? Query { get; set; }
 
         /// <summary>Exactly one source in a set is the master (carries Sensor Name, sets the signal count).</summary>
         public bool IsMaster { get; set; }

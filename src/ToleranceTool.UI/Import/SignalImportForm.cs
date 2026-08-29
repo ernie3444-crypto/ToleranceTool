@@ -89,6 +89,7 @@ namespace ToleranceTool.UI.Import
             var sourcesPanel = new Panel { Dock = DockStyle.Fill };
             var sourceButtons = new FlowLayoutPanel { Dock = DockStyle.Bottom, Height = 32 };
             sourceButtons.Controls.Add(Button("Add file…", AddFile));
+            sourceButtons.Controls.Add(Button("Add Access…", AddAccessSource));
             sourceButtons.Controls.Add(Button("Remove", RemoveSource));
             sourcesPanel.Controls.Add(_sourceList);
             sourcesPanel.Controls.Add(sourceButtons);
@@ -172,6 +173,31 @@ namespace ToleranceTool.UI.Import
                     _sources.Add(definition);
                 }
 
+                RefreshSourceList();
+                _sourceList.SelectedIndex = _sourceList.Items.Count - 1;
+            }
+        }
+
+        private void AddAccessSource()
+        {
+            using (var dialog = new AddAccessSourceDialog())
+            {
+                if (dialog.ShowDialog(this) != DialogResult.OK)
+                {
+                    return;
+                }
+
+                ImportSourceDefinition definition = dialog.BuildDefinition();
+                if (definition.IsMaster || _sources.Count == 0)
+                {
+                    definition.IsMaster = _sources.Count == 0 || definition.IsMaster;
+                    if (definition.IsMaster)
+                    {
+                        _sources.ForEach(s => s.IsMaster = false);
+                    }
+                }
+
+                _sources.Add(definition);
                 RefreshSourceList();
                 _sourceList.SelectedIndex = _sourceList.Items.Count - 1;
             }
@@ -320,12 +346,16 @@ namespace ToleranceTool.UI.Import
                     HeaderRowIndex = definition.HeaderRowIndex,
                     UniversalIdLocator = definition.UniversalIdLocator,
                     IsMaster = definition.IsMaster,
+                    Query = definition.Query,
                 };
                 effective.Fields.AddRange(bindings);
 
                 try
                 {
-                    builder.Add(FileSignalSource.Open(effective), effective);
+                    ISignalSource source = effective.Kind == SignalSourceKind.Access
+                        ? new ToleranceTool.Import.Access.AccessSignalSource(effective)
+                        : FileSignalSource.Open(effective);
+                    builder.Add(source, effective);
                 }
                 catch (Exception ex)
                 {
