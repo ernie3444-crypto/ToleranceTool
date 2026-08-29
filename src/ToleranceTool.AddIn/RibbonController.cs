@@ -1,7 +1,10 @@
+using System;
 using System.Runtime.InteropServices;
+using System.Windows.Forms;
 using ExcelDna.Integration.CustomUI;
 using ToleranceTool.Excel;
 using ToleranceTool.UI;
+using ToleranceTool.UI.Tolerances;
 
 namespace ToleranceTool.AddIn
 {
@@ -65,7 +68,32 @@ namespace ToleranceTool.AddIn
 
         public void OnSetup(IRibbonControl control)
         {
-            Placeholders.NotImplemented(SetupFeatureName(control.Id));
+            switch (control.Id)
+            {
+                case "ttToleranceEditor":
+                    ShowDialog(new ToleranceEditorForm());
+                    break;
+
+                default:
+                    Placeholders.NotImplemented(SetupFeatureName(control.Id));
+                    break;
+            }
+        }
+
+        private static void ShowDialog(Form form)
+        {
+            try
+            {
+                form.ShowDialog();
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show(ex.ToString(), "Tolerance Tool", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+            finally
+            {
+                form.Dispose();
+            }
         }
 
         public void OnApply(IRibbonControl control)

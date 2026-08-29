@@ -1,7 +1,26 @@
+using System.Collections.Generic;
 using ToleranceTool.Core.Signals;
 
 namespace ToleranceTool.Core.Tolerances
 {
+    /// <summary>One tolerance term after the engine resolved it to a magnitude in its space.</summary>
+    public sealed class ResolvedTerm
+    {
+        public ResolvedTerm(ToleranceTerm source, ToleranceSpace space, double magnitude)
+        {
+            Source = source;
+            Space = space;
+            Magnitude = magnitude;
+        }
+
+        public ToleranceTerm Source { get; }
+
+        public ToleranceSpace Space { get; }
+
+        /// <summary>The term's contribution, in raw units or EU depending on <see cref="Space"/>.</summary>
+        public double Magnitude { get; }
+    }
+
     public enum ToleranceOutcome
     {
         /// <summary>A tolerance was calculated.</summary>
@@ -59,6 +78,9 @@ namespace ToleranceTool.Core.Tolerances
 
         /// <summary>True when a raw edge fell outside [RawLow, RawHigh] and the curve was extrapolated.</summary>
         public bool Extrapolated { get; set; }
+
+        /// <summary>Each tolerance term with the magnitude the engine resolved it to. For the audit view and the editor preview.</summary>
+        public List<ResolvedTerm> Terms { get; } = new List<ResolvedTerm>();
 
         public bool IsCalculated => Outcome == ToleranceOutcome.Calculated;
 

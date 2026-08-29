@@ -93,6 +93,7 @@ namespace ToleranceTool.Core.Tolerances
                 }
 
                 band += magnitude;
+                result.Terms.Add(new ResolvedTerm(term, ToleranceSpace.Eu, magnitude));
             }
 
             result.UsedEuFastPath = true;
@@ -160,7 +161,9 @@ namespace ToleranceTool.Core.Tolerances
             double rawBand = 0;
             foreach (ToleranceTerm term in rawTerms)
             {
-                rawBand += ResolveRawTerm(term, expected, rawExpected, euLow, euHigh, signal);
+                double magnitude = ResolveRawTerm(term, expected, rawExpected, euLow, euHigh, signal);
+                rawBand += magnitude;
+                result.Terms.Add(new ResolvedTerm(term, ToleranceSpace.Raw, magnitude));
             }
 
             double euExtra = 0;
@@ -172,6 +175,7 @@ namespace ToleranceTool.Core.Tolerances
                 }
 
                 euExtra += magnitude;
+                result.Terms.Add(new ResolvedTerm(term, ToleranceSpace.Eu, magnitude));
             }
 
             double rawPlus = rawExpected + rawBand;

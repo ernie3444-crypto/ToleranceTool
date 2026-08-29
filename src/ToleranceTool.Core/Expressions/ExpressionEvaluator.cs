@@ -76,6 +76,34 @@ namespace ToleranceTool.Core.Expressions
             }
         }
 
+        /// <summary>
+        /// The distinct variable names the expression body references. Used to check
+        /// a body against the set of variables a context actually provides.
+        /// </summary>
+        public IReadOnlyCollection<string> ReferencedVariables()
+        {
+            var names = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+            var probe = new Expression(_body, EvaluateOptions.IgnoreCase);
+            probe.EvaluateParameter += (name, args) =>
+            {
+                names.Add(name);
+                args.Result = 1d;
+            };
+
+            try
+            {
+                probe.Evaluate();
+            }
+            catch
+            {
+                // We only want the identifiers the parser saw; an evaluation fault
+                // (bad arity, type mix) is reported separately by Validate.
+            }
+
+            return names;
+        }
+
         /// <summary>Parses <paramref name="body"/> and returns null if it is well-formed, else the error text.</summary>
         public static string? Validate(string body)
         {
