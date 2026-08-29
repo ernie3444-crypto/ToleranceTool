@@ -1,9 +1,19 @@
 using System;
+using System.IO;
+using System.Linq;
 using System.Runtime.InteropServices;
 using System.Windows.Forms;
 using ExcelDna.Integration.CustomUI;
+using ToleranceTool.Configuration;
+using ToleranceTool.Configuration.Aliases;
+using ToleranceTool.Configuration.Datasheet;
+using ToleranceTool.Configuration.Tolerances;
+using ToleranceTool.Core.Scales;
 using ToleranceTool.Excel;
+using ToleranceTool.Excel.Datasheet;
+using ToleranceTool.Import;
 using ToleranceTool.UI;
+using ToleranceTool.UI.Datasheet;
 using ToleranceTool.UI.Import;
 using ToleranceTool.UI.Scales;
 using ToleranceTool.UI.SignalTypes;
@@ -89,9 +99,32 @@ namespace ToleranceTool.AddIn
                     ShowDialog(new SignalTypeEditorForm());
                     break;
 
+                case "ttAliasTables":
+                    ShowDialog(new AliasTableEditorForm());
+                    break;
+
+                case "ttDatasheetMapping":
+                    OpenDatasheetMapping();
+                    break;
+
                 default:
                     Placeholders.NotImplemented(SetupFeatureName(control.Id));
                     break;
+            }
+        }
+
+        private void OpenDatasheetMapping()
+        {
+            try
+            {
+                var sheet = new ExcelDatasheet(ExcelApplication.ActiveSheet);
+                string path = SheetMappingPath(sheet.Name);
+                string? xml = File.Exists(path) ? File.ReadAllText(path) : null;
+                ShowDialog(new DatasheetMappingForm(sheet, xml));
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show(ex.ToString(), "Tolerance Tool", MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
         }
 
@@ -111,19 +144,91 @@ namespace ToleranceTool.AddIn
             }
         }
 
-        public void OnApply(IRibbonControl control)
-        {
-            Placeholders.NotImplemented("Apply Tolerances");
-        }
+        public void OnApply(IRibbonControl control) => RunActiveSheet(DatasheetRunMode.Apply);
 
-        public void OnCheck(IRibbonControl control)
-        {
-            Placeholders.NotImplemented("Check Tolerances");
-        }
+        public void OnCheck(IRibbonControl control) => RunActiveSheet(DatasheetRunMode.Check);
 
         public void OnClearComments(IRibbonControl control)
         {
-            Placeholders.NotImplemented("Clear Tool Comments");
+            try
+            {
+                new ExcelDatasheet(ExcelApplication.ActiveSheet).ClearToolComments(DatasheetRunner.CommentMarker);
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show(ex.Message, "Tolerance Tool", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+        }
+
+        private void RunActiveSheet(DatasheetRunMode mode)
+        {
+            try
+            {
+                var sheet = new ExcelDatasheet(ExcelApplication.ActiveSheet);
+
+                string mappingPath = SheetMappingPath(sheet.Name);
+                if (!File.Exists(mappingPath))
+                {
+                    MessageBox.Show(
+                        $"No datasheet mapping saved for \"{sheet.Name}\". Open Datasheet Mapping first.",
+                        "Tolerance Tool", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                    return;
+                }
+
+                DatasheetMapping mapping = DatasheetMappingXml.FromXml(File.ReadAllText(mappingPath)).Value;
+
+                ToleranceLibrary tolerances = File.Exists(ConfigurationPaths.ToleranceLibraryFile)
+                    ? ToleranceLibraryXml.Load(ConfigurationPaths.ToleranceLibraryFile).Value
+                    : new ToleranceLibrary();
+
+                AliasTableSet aliases = File.Exists(ConfigurationPaths.AliasTablesFile)
+                    ? AliasTablesXml.Load(ConfigurationPaths.AliasTablesFile).Value
+                    : AliasTableSet.Empty();
+
+                string sidecar = Path.Combine(ConfigurationPaths.RootFolder, "last-signal-set.xml");
+                var signals = File.Exists(sidecar)
+                    ? SignalConfigSetXml.Load(sidecar).Value
+                    : new System.Collections.Generic.List<Core.Signals.SignalConfig>();
+
+                ScaleCurveLibrary curves = LoadCurves();
+
+                var resolver = new SignalResolver(signals, aliases, mapping.ResolutionOverrides);
+                var runner = new DatasheetRunner(resolver, tolerances, curves);
+                DatasheetRunResult result = runner.Run(sheet, mapping, mode);
+
+                MessageBox.Show(result.Summary(), $"{mode} — {sheet.Name}", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show(ex.ToString(), "Tolerance Tool", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+        }
+
+        private static ScaleCurveLibrary LoadCurves()
+        {
+            try
+            {
+                if (File.Exists(ConfigurationPaths.ScaleTypeLibraryFile))
+                {
+                    var loaded = ToleranceTool.Configuration.Scales.ScaleTypeLibraryXml.Load(ConfigurationPaths.ScaleTypeLibraryFile);
+                    if (!loaded.HasErrors && loaded.Value.Count > 0)
+                    {
+                        return ScaleCurveLibrary.From(loaded.Value);
+                    }
+                }
+            }
+            catch
+            {
+                // fall through
+            }
+
+            return ScaleCurveLibrary.CreateDefault();
+        }
+
+        private static string SheetMappingPath(string sheetName)
+        {
+            string safe = string.Concat(sheetName.Select(c => Path.GetInvalidFileNameChars().Contains(c) ? '_' : c));
+            return Path.Combine(ConfigurationPaths.RootFolder, "sheets", safe + ".xml");
         }
 
         // ReSharper restore UnusedParameter.Global

@@ -116,6 +116,7 @@ namespace ToleranceTool.UI.Import
             previewButtons.Controls.Add(Button("Build preview", BuildPreview));
             var useButton = Button("Use this set", () => { DialogResult = DialogResult.OK; Close(); });
             previewButtons.Controls.Add(useButton);
+            previewButtons.Controls.Add(Button("Save signal set…", SaveSignalSet));
             previewPanel.Controls.Add(_preview);
             previewPanel.Controls.Add(previewButtons);
             previewPanel.Controls.Add(new Label { Text = "Preview", Dock = DockStyle.Top, Height = 20, Font = Bold() });
@@ -381,6 +382,27 @@ namespace ToleranceTool.UI.Import
                 {
                     _preview.Rows[row].DefaultCellStyle.BackColor = Color.MistyRose;
                 }
+            }
+        }
+
+        private void SaveSignalSet()
+        {
+            if (ResultSet.Count == 0)
+            {
+                _issues.Items.Add("Build the preview before saving.");
+                return;
+            }
+
+            string defaultPath = System.IO.Path.Combine(ConfigurationPaths.RootFolder, "last-signal-set.xml");
+            using (var save = new SaveFileDialog { Filter = "Signal set (*.xml)|*.xml", FileName = System.IO.Path.GetFileName(defaultPath), InitialDirectory = ConfigurationPaths.RootFolder })
+            {
+                if (save.ShowDialog(this) != DialogResult.OK)
+                {
+                    return;
+                }
+
+                SignalConfigSetXml.Save(ResultSet.Complete.Select(s => s.Config), save.FileName);
+                _status.Text = $"Saved {ResultSet.Complete.Count()} complete signal(s) to {save.FileName}";
             }
         }
 

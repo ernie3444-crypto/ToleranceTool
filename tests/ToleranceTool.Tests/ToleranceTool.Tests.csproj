@@ -20,6 +20,7 @@
     <ProjectReference Include="..\..\src\ToleranceTool.Core\ToleranceTool.Core.csproj" />
     <ProjectReference Include="..\..\src\ToleranceTool.Configuration\ToleranceTool.Configuration.csproj" />
     <ProjectReference Include="..\..\src\ToleranceTool.Import\ToleranceTool.Import.csproj" />
+    <ProjectReference Include="..\..\src\ToleranceTool.Excel\ToleranceTool.Excel.csproj" />
   </ItemGroup>
 
 </Project>
