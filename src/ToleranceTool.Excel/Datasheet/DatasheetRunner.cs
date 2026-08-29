@@ -39,10 +39,9 @@ namespace ToleranceTool.Excel.Datasheet
         {
             var result = new DatasheetRunResult { Mode = mode };
 
-            if (mapping.Orientation != DatasheetOrientation.RowPerCase)
+            if (mapping.Orientation == DatasheetOrientation.ColumnPerCase)
             {
-                result.SetupProblems.Add("Only row-oriented datasheets are supported (column orientation is P7).");
-                return result;
+                sheet = new TransposedDatasheet(sheet);
             }
 
             foreach (DatasheetParameter missing in mapping.MissingRequiredHeaders())

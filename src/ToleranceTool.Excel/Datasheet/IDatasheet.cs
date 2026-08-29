@@ -13,6 +13,9 @@ namespace ToleranceTool.Excel.Datasheet
         /// <summary>Zero-based index of the last row that holds data.</summary>
         int LastRowIndex { get; }
 
+        /// <summary>Zero-based index of the last column that holds data.</summary>
+        int LastColumnIndex { get; }
+
         /// <summary>The cells of one row as strings (trimmed by the caller). Missing cells are null.</summary>
         string?[] Row(int rowIndex);
 

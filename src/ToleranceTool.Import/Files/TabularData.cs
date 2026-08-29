@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Text;
 using ExcelDataReader;
 
@@ -33,6 +34,25 @@ namespace ToleranceTool.Import.Files
 
             string?[] cells = _rows[row];
             return column >= 0 && column < cells.Length ? cells[column] : null;
+        }
+
+        /// <summary>Row ↔ column swap. Turns a column-oriented sheet into a row-oriented one.</summary>
+        public TabularData Transpose()
+        {
+            int width = _rows.Count == 0 ? 0 : _rows.Max(r => r.Length);
+            var transposed = new List<string?[]>(width);
+            for (int c = 0; c < width; c++)
+            {
+                var row = new string?[_rows.Count];
+                for (int r = 0; r < _rows.Count; r++)
+                {
+                    row[r] = c < _rows[r].Length ? _rows[r][c] : null;
+                }
+
+                transposed.Add(row);
+            }
+
+            return new TabularData(transposed);
         }
 
         public static TabularData Read(string path, string? sheetName = null)

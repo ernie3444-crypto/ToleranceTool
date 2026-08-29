@@ -21,7 +21,9 @@ namespace ToleranceTool.Tests
 
         public int LastRowIndex => _rows.Count - 1;
 
-        public IEnumerable<int> ColumnIndexes => Enumerable.Range(0, _rows.Max(r => r.Length));
+        public int LastColumnIndex => (_rows.Count == 0 ? 0 : _rows.Max(r => r.Length)) - 1;
+
+        public IEnumerable<int> ColumnIndexes => Enumerable.Range(0, _rows.Count == 0 ? 0 : _rows.Max(r => r.Length));
 
         public List<(int Row, int Col, string Text)> Comments { get; } = new List<(int, int, string)>();
 

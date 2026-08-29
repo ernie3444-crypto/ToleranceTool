@@ -31,6 +31,7 @@ namespace ToleranceTool.UI.Datasheet
         private AliasTableSet _aliases = AliasTableSet.Empty();
         private readonly ScaleCurveLibrary _curves;
 
+        private readonly ComboBox _orientation = new ComboBox { DropDownStyle = ComboBoxStyle.DropDownList, Width = 150 };
         private readonly TextBox _headerRow = new TextBox { Width = 60, Text = "1" };
         private readonly Dictionary<DatasheetParameter, ComboBox> _headerCombos = new Dictionary<DatasheetParameter, ComboBox>();
         private readonly ComboBox _unitColumn = new ComboBox { DropDownStyle = ComboBoxStyle.DropDownList, Width = 160 };
@@ -117,8 +118,12 @@ namespace ToleranceTool.UI.Datasheet
                 layout.Controls.Add(b ?? new Label());
             }
 
+            _orientation.Items.AddRange(new object[] { DatasheetOrientation.RowPerCase, DatasheetOrientation.ColumnPerCase });
+            _orientation.SelectedIndex = 0;
+            _orientation.SelectedIndexChanged += (s, e) => { PopulateHeaderChoices(); RefreshReview(); };
+            Row("Orientation", _orientation, "Label row/col (1-based)", _headerRow);
+
             _headerRow.TextChanged += (s, e) => { PopulateHeaderChoices(); };
-            Row("Header row (1-based)", _headerRow);
 
             foreach (DatasheetParameter parameter in Enum.GetValues(typeof(DatasheetParameter)).Cast<DatasheetParameter>())
             {
@@ -229,6 +234,7 @@ namespace ToleranceTool.UI.Datasheet
 
         private void ApplyMappingToControls()
         {
+            _orientation.SelectedItem = _mapping.Orientation;
             _headerRow.Text = (_mapping.HeaderRowIndex + 1).ToString();
             foreach (var pair in _headerCombos)
             {
@@ -246,6 +252,7 @@ namespace ToleranceTool.UI.Datasheet
         {
             var mapping = new DatasheetMapping
             {
+                Orientation = SelectedOrientation(),
                 HeaderRowIndex = HeaderRowIndex(),
                 DefaultUnitSystem = (UnitSystem)_unitSystem.SelectedItem,
                 UnitColumnHeader = Blank(_unitColumn.SelectedItem),
@@ -332,6 +339,7 @@ namespace ToleranceTool.UI.Datasheet
                 return;
             }
 
+            IDatasheet sheet = EffectiveSheet();
             int headerRow = mapping.HeaderRowIndex;
             string?[] headers = SafeRow(headerRow);
             int systemIdColumn = Array.FindIndex(headers, h => string.Equals(h?.Trim(), systemIdHeader!.Trim(), StringComparison.OrdinalIgnoreCase));
@@ -348,10 +356,10 @@ namespace ToleranceTool.UI.Datasheet
             overrideColumn.Items.Add(string.Empty);
             overrideColumn.Items.AddRange(universalIds);
 
-            int last = mapping.LastDataRowIndex ?? _sheet.LastRowIndex;
+            int last = mapping.LastDataRowIndex ?? sheet.LastRowIndex;
             for (int row = headerRow + 1; row <= last; row++)
             {
-                string? systemId = _sheet.GetText(row, systemIdColumn)?.Trim();
+                string? systemId = sheet.GetText(row, systemIdColumn)?.Trim();
                 if (string.IsNullOrEmpty(systemId))
                 {
                     continue;
@@ -418,11 +426,16 @@ namespace ToleranceTool.UI.Datasheet
         private int HeaderRowIndex() =>
             int.TryParse(_headerRow.Text.Trim(), out int oneBased) && oneBased >= 1 ? oneBased - 1 : 0;
 
+        private DatasheetOrientation SelectedOrientation() => (DatasheetOrientation)_orientation.SelectedItem;
+
+        private IDatasheet EffectiveSheet() =>
+            SelectedOrientation() == DatasheetOrientation.ColumnPerCase ? new TransposedDatasheet(_sheet) : _sheet;
+
         private string?[] SafeRow(int rowIndex)
         {
             try
             {
-                return _sheet.Row(rowIndex);
+                return EffectiveSheet().Row(rowIndex);
             }
             catch
             {

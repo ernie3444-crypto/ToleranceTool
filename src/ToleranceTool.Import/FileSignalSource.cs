@@ -13,14 +13,27 @@ namespace ToleranceTool.Import
         private readonly ImportSourceDefinition _definition;
         private readonly TabularData _data;
 
+        private readonly bool _labelRowIsFirst;
+
         public FileSignalSource(ImportSourceDefinition definition, TabularData data)
         {
             _definition = definition ?? throw new ArgumentNullException(nameof(definition));
-            _data = data ?? throw new ArgumentNullException(nameof(data));
-
-            if (_definition.Orientation != SignalDataOrientation.RowPerSignal)
+            if (data == null)
             {
-                throw new NotSupportedException("Column-oriented sources arrive in P7.");
+                throw new ArgumentNullException(nameof(data));
+            }
+
+            // A column-oriented source (one signal per column, field labels down a
+            // column) is read by transposing it: each original column becomes a row,
+            // and the field locators — which were row numbers — become column refs.
+            if (_definition.Orientation == SignalDataOrientation.ColumnPerSignal)
+            {
+                _data = data.Transpose();
+                _labelRowIsFirst = true;
+            }
+            else
+            {
+                _data = data;
             }
         }
 
@@ -51,7 +64,9 @@ namespace ToleranceTool.Import
                 bindings.Add((column, binding));
             }
 
-            int firstDataRow = _definition.HeaderRowIndex.HasValue ? _definition.HeaderRowIndex.Value + 1 : 0;
+            int firstDataRow = _labelRowIsFirst
+                ? 1
+                : _definition.HeaderRowIndex.HasValue ? _definition.HeaderRowIndex.Value + 1 : 0;
             var records = new List<SignalFieldRecord>();
 
             for (int row = firstDataRow; row < _data.RowCount; row++)

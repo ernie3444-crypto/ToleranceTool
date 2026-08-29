@@ -32,6 +32,8 @@ namespace ToleranceTool.Excel.Datasheet
 
         public int LastRowIndex => _lastRow - 1;
 
+        public int LastColumnIndex => _lastColumn - 1;
+
         public IEnumerable<int> ColumnIndexes => Enumerable.Range(0, _lastColumn);
 
         public string?[] Row(int rowIndex)
