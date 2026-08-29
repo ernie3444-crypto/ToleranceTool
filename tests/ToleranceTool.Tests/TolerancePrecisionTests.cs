@@ -23,19 +23,22 @@ namespace ToleranceTool.Tests
         }
 
         [Fact]
-        public void Round_MatchExpected_UsesTheSuppliedDigitCount()
+        public void Round_MatchExpected_RoundsToTheDecimalPlacesShownInTheExpectedCell()
         {
             PrecisionPolicy policy = PrecisionPolicy.MatchExpected();
 
-            Assert.Equal(0.048, TolerancePrecision.Round(0.0481234, policy, expectedSignificantDigits: 2), 10);
+            // Expected shown with 2 decimal places -> tolerance to 2 decimal places.
+            Assert.Equal(0.05, TolerancePrecision.Round(0.0481234, policy, expectedDecimalPlaces: 2), 10);
+            // Expected shown as a whole number -> tolerance to 0 decimal places.
+            Assert.Equal(1, TolerancePrecision.Round(0.75, PrecisionPolicy.MatchExpected(RoundingMode.HalfUp), expectedDecimalPlaces: 0), 10);
         }
 
         [Fact]
-        public void Round_MatchExpected_ReturnsTheValueUnchangedWhenTheDigitCountIsUnknown()
+        public void Round_MatchExpected_ReturnsTheValueUnchangedWhenTheDecimalCountIsUnknown()
         {
             PrecisionPolicy policy = PrecisionPolicy.MatchExpected();
 
-            Assert.Equal(0.0481234, TolerancePrecision.Round(0.0481234, policy, expectedSignificantDigits: null), 10);
+            Assert.Equal(0.0481234, TolerancePrecision.Round(0.0481234, policy, expectedDecimalPlaces: null), 10);
         }
 
         [Fact]

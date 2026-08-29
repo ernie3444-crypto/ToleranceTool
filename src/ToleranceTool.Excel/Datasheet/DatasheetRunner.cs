@@ -198,10 +198,10 @@ namespace ToleranceTool.Excel.Datasheet
                         continue;
                     }
 
-                    int? shownDigits = mapping.Precision.Mode == PrecisionMode.MatchExpected
-                        ? SignificantDigits.Count(sheet.GetDisplayText(row, expectedColumn))
+                    int? shownDecimals = mapping.Precision.Mode == PrecisionMode.MatchExpected
+                        ? DisplayedPrecision.DecimalPlaces(sheet.GetDisplayText(row, expectedColumn))
                         : null;
-                    double rounded = TolerancePrecision.Round(calc.Tolerance, mapping.Precision, shownDigits);
+                    double rounded = TolerancePrecision.Round(calc.Tolerance, mapping.Precision, shownDecimals);
                     outcome.Calculated = rounded;
 
                     if (mode == DatasheetRunMode.Apply)

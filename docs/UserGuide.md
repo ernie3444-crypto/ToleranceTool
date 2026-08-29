@@ -130,9 +130,10 @@ Make the datasheet the **active worksheet**, then **Setup → Datasheet Mapping*
 4. **Default unit system** for the sheet (English or SI). If you map a per-row unit
    column it overrides the default for rows where it is non-blank.
 5. **Precision** — how the written value is rounded:
-   - *Match Expected* — count the significant digits shown in that row's Expected
-     cell and round the tolerance to the same count (recommended).
-   - *Significant figures* / *Decimal places* — a fixed count for every row.
+   - *Match Expected* — round the tolerance to the **number of decimal places shown
+     in that row's Expected cell** (an Expected of `125.0` → tolerance to 1 decimal
+     place; `125` → whole number). Recommended.
+   - *Decimal places* / *Significant figures* — a fixed **Digits** count for every row.
    - Rounding mode: half-to-even (default) or half-up.
 6. **Resolution review** — the grid shows every data row's System ID, how it
    resolved, and the signal it landed on. The resolution ladder is:

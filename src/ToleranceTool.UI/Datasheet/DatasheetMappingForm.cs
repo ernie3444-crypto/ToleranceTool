@@ -138,7 +138,10 @@ namespace ToleranceTool.UI.Datasheet
 
             var hint = new Label
             {
-                Text = "Expected / Tolerance / Actual / Pass-Fail may repeat — each repeated group is another test point on the same row.",
+                Text =
+                    "Precision — MatchExpected: round the tolerance to the decimal places shown in that row's Expected cell.  " +
+                    "DecimalPlaces / SignificantFigures: a fixed \"Digits\" count for every row.\n" +
+                    "Expected / Tolerance / Actual / Pass-Fail headers may repeat — each repeated group is another test point on the same row.",
                 Dock = DockStyle.Top,
                 AutoSize = true,
                 ForeColor = Color.DimGray,

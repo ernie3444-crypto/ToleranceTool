@@ -3,8 +3,9 @@ namespace ToleranceTool.Core.Precision
     public enum PrecisionMode
     {
         /// <summary>
-        /// Round to the number of significant digits shown in the row's Expected
-        /// cell. The digit count is read from Excel and passed to the rounder.
+        /// Round to the number of decimal places shown in the row's Expected cell
+        /// (e.g. an Expected of "125.0" rounds the tolerance to one decimal place).
+        /// The place count is read from Excel and passed to the rounder.
         /// </summary>
         MatchExpected = 0,
 

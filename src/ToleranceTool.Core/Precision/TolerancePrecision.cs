@@ -11,11 +11,11 @@ namespace ToleranceTool.Core.Precision
     {
         /// <summary>
         /// Rounds <paramref name="tolerance"/> per <paramref name="policy"/>.
-        /// For <see cref="PrecisionMode.MatchExpected"/>, pass the significant-digit
-        /// count read from the Expected cell; when it is null the value is returned
+        /// For <see cref="PrecisionMode.MatchExpected"/>, pass the number of decimal
+        /// places shown in the Expected cell; when it is null the value is returned
         /// unrounded (the caller could not determine the displayed precision).
         /// </summary>
-        public static double Round(double tolerance, PrecisionPolicy policy, int? expectedSignificantDigits = null)
+        public static double Round(double tolerance, PrecisionPolicy policy, int? expectedDecimalPlaces = null)
         {
             if (policy == null)
             {
@@ -30,8 +30,8 @@ namespace ToleranceTool.Core.Precision
             switch (policy.Mode)
             {
                 case PrecisionMode.MatchExpected:
-                    return expectedSignificantDigits.HasValue
-                        ? RoundToSignificantFigures(tolerance, expectedSignificantDigits.Value, policy.Rounding)
+                    return expectedDecimalPlaces.HasValue
+                        ? RoundToDecimalPlaces(tolerance, Math.Min(expectedDecimalPlaces.Value, 15), policy.Rounding)
                         : tolerance;
 
                 case PrecisionMode.SignificantFigures:

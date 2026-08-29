@@ -785,9 +785,9 @@
       <h3>Tolerance precision</h3>
       <p>The mapping stores how the written value is rounded:</p>
       <ul>
-        <li><strong>Match the Expected cell</strong> &mdash; count the significant digits shown in that row's
+        <li><strong>Match the Expected cell</strong> &mdash; count the decimal places shown in that row's
           Expected cell (from its displayed text, honouring its number format) and round the tolerance to the
-          same count. This is the requested default-capable option.</li>
+          same number of decimal places. This is the default option.</li>
         <li><strong>Fixed</strong> &mdash; N significant figures, or N decimal places, applied to every row.</li>
         <li><strong>Rounding mode</strong> &mdash; half-up or half-to-even.</li>
       </ul>
@@ -1114,7 +1114,7 @@ Workbook 1  (master)              Workbook 2
             <tr><td>Tolerance forms</td><td><code>&plusmn;0.3%</code>, <code>&plusmn;0.45&nbsp;degF</code>, <code>&plusmn;0.5&nbsp;rpm</code> &mdash; latter two already EU. Typed terms in &sect;5.</td></tr>
             <tr><td>Percent basis</td><td>Default <strong>% of raw span</strong> (4-20&nbsp;mA &rarr; % of 16). Option: % of EU span, English or SI.</td></tr>
             <tr><td>Out-of-range band</td><td>Extrapolate through the curve; flag only if the curve goes non-finite.</td></tr>
-            <tr><td>Written precision</td><td>Offer "match the significant digits shown in the Expected cell"; round to that when chosen. Fixed sig-figs / decimals also available.</td></tr>
+            <tr><td>Written precision</td><td>Default: match the decimal places shown in the Expected cell. Fixed decimals / sig-figs also available.</td></tr>
             <tr><td>Config location</td><td>Per-user, <code>%APPDATA%\ToleranceTool\</code> for shared libraries; workbook for per-sheet setup.</td></tr>
             <tr><td>Multiple datasheets</td><td>The tool works on whichever sheet is <strong>active</strong>; setup is stored per sheet.</td></tr>
             <tr><td>Comment style</td><td>Classic notes, with a marker prefix + tracked addresses so only the tool's own notes are cleared.</td></tr>

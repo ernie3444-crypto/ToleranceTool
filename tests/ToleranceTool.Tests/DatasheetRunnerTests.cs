@@ -140,22 +140,25 @@ namespace ToleranceTool.Tests
         }
 
         [Fact]
-        public void Apply_MatchExpected_RoundsToTheShownSignificantDigits()
+        public void Apply_MatchExpected_RoundsToTheDecimalPlacesShownInTheExpectedCell()
         {
             (FakeDatasheet sheet, DatasheetMapping mapping, DatasheetRunner runner) =
                 Setup(new[]
                 {
                     new string?[] { "Signal", "Expected", "Tol" },
                     new string?[] { "FT-201", "125", "" },
-                }, PrecisionPolicy.MatchExpected());
+                    new string?[] { "FT-201", "125", "" },
+                }, PrecisionPolicy.MatchExpected(RoundingMode.HalfUp));
 
-            sheet.Display[(1, 1)] = "125.0"; // 4 significant digits shown
+            sheet.Display[(1, 1)] = "125.0";   // 1 decimal place shown
+            sheet.Display[(2, 1)] = "125";     // whole number
 
             DatasheetRunResult result = runner.Run(sheet, mapping, DatasheetRunMode.Apply);
 
-            // exact tolerance is 0.75; 4 sig figs -> 0.7500
-            Assert.Equal(0.75, sheet.Written[(1, 2)], 6);
-            Assert.Equal(1, result.Written);
+            // exact tolerance is 0.75
+            Assert.Equal(0.8, sheet.Written[(1, 2)], 6);   // -> 1 decimal place
+            Assert.Equal(1.0, sheet.Written[(2, 2)], 6);   // -> 0 decimal places
+            Assert.Equal(2, result.Written);
         }
 
         [Fact]
@@ -290,21 +293,23 @@ namespace ToleranceTool.Tests
         }
     }
 
-    public class SignificantDigitsTests
+    public class DisplayedPrecisionTests
     {
         [Theory]
-        [InlineData("125", 3)]
-        [InlineData("125.0", 4)]
-        [InlineData("0.0480", 3)]
-        [InlineData("1200", 4)]
-        [InlineData("-3.14", 3)]
-        [InlineData("1.5e3", 2)]
+        [InlineData("125", 0)]
+        [InlineData("125.0", 1)]
+        [InlineData("0.0480", 4)]
+        [InlineData("1,234.56", 2)]
+        [InlineData("-3.14", 2)]
+        [InlineData("1.50e3", 0)]
+        [InlineData("1.5e-2", 3)]
+        [InlineData("42%", 0)]
         [InlineData("", null)]
         [InlineData("n/a", null)]
         [InlineData("#DIV/0!", null)]
-        public void Count_MatchesWhatIsShown(string text, int? expected)
+        public void DecimalPlaces_CountsWhatIsShownAfterThePoint(string text, int? expected)
         {
-            Assert.Equal(expected, SignificantDigits.Count(text));
+            Assert.Equal(expected, DisplayedPrecision.DecimalPlaces(text));
         }
     }
 
